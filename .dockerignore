@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+.git
+.gitignore
+.env
+.env.*
+*.log
+coverage
+.playwright
+test-results
+drizzle/*.sql
+!drizzle/migrations

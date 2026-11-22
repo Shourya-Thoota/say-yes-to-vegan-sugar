@@ -1,0 +1,46 @@
+// Typed server-side configuration. Validates at runtime, never at import time
+// during `next build`, so public pages can build without secrets.
+
+export type ServerConfig = {
+  databaseUrl: string | null;
+  authSecret: string | null;
+  googleId: string | null;
+  googleSecret: string | null;
+  adminEmails: string[];
+  siteUrl: string;
+  trustHost: boolean;
+  isProduction: boolean;
+};
+
+let cached: ServerConfig | null = null;
+
+export function getServerConfig(): ServerConfig {
+  if (cached) return cached;
+  const adminRaw = process.env.ADMIN_EMAILS ?? "";
+  cached = {
+    databaseUrl: process.env.DATABASE_URL ?? null,
+    authSecret: process.env.AUTH_SECRET ?? null,
+    googleId: process.env.AUTH_GOOGLE_ID ?? null,
+    googleSecret: process.env.AUTH_GOOGLE_SECRET ?? null,
+    adminEmails: adminRaw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+    siteUrl: (
+      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+    ).replace(/\/$/, ""),
+    trustHost: (process.env.AUTH_TRUST_HOST ?? "true") !== "false",
+    isProduction: process.env.NODE_ENV === "production",
+  };
+  return cached;
+}
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return getServerConfig().adminEmails.includes(email.toLowerCase());
+}
+
+export function getPublicConfig() {
+  const c = getServerConfig();
+  return { siteUrl: c.siteUrl };
+}

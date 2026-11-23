@@ -206,29 +206,33 @@ export default function HomePage() {
           See how sugar is processed.
         </h2>
         <p className="mt-4 max-w-3xl text-[17px] leading-relaxed text-[#4A4238]">
-          Processing methods can differ. This video provides context; check the documentation for
-          the specific sugar your temple purchases.
+          Processing methods can differ. This 2022 CBC British Columbia segment provides context
+          on sugar processing and baking alternatives; check current documentation for the
+          specific sugar your temple purchases.
         </p>
         <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_1.2fr]">
           <div>
-            <h3 className="font-heading text-2xl font-bold">Is Sugar Vegan?</h3>
-            <p className="mt-1 text-[15px] font-semibold text-[#6B5E4F]">BiteSizeVegan.org · YouTube</p>
+            <h3 className="font-heading text-2xl font-bold">Sugar is sweet but is it vegan?</h3>
+            <p className="mt-1 text-[15px] font-semibold text-[#6B5E4F]">CBC British Columbia · YouTube</p>
             <p className="mt-4 leading-relaxed text-[#4A4238]">
-              An educational explainer on why some cane sugar is filtered with bone char and how
-              shoppers think about alternatives such as less-refined or certified options. Relevant
-              here because it walks through the filtering step—not a single brand—and points back
-              to checking the specific product. The creator does not endorse Temple Initiative.
+              A CBC British Columbia segment about sugar processing and the baking alternatives
+              some shoppers discuss. It offers context on the filtering step—not a factory
+              documentary or a comprehensive guide—and points back to checking the specific
+              product. Some sugar is processed using animal-derived aids. Processing varies by
+              product and manufacturer; check current documentation for the specific sugar. The
+              publisher does not endorse Temple Initiative.
             </p>
             <div className="mt-4 rounded-2xl bg-white p-5 text-[15px] leading-relaxed text-[#4A4238]">
               <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6B5E4F]">Text summary</p>
               <p className="mt-2">
                 Bone char can be used to decolorize some cane sugar; it is a processing aid, not an
                 ingredient. Methods vary by maker and product, so a responsible check means reading
-                the exact package and confirming with the manufacturer. This page—not the
-                video—remains the complete guide.
+                the exact package and confirming with the manufacturer. This segment dates from
+                2022 and mentions Canadian products, so verify current product-specific
+                information. This page—not the video—remains the complete guide.
               </p>
               <a
-                href="https://www.youtube.com/watch?v=RcbeJEUnii4"
+                href="https://www.youtube.com/watch?v=tOw5M40uSyk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-block font-semibold text-terracotta-deeper underline underline-offset-4"
@@ -238,9 +242,9 @@ export default function HomePage() {
             </div>
           </div>
           <VideoEmbed
-            videoId="RcbeJEUnii4"
-            title="Is Sugar Vegan? by BiteSizeVegan.org"
-            watchUrl="https://www.youtube.com/watch?v=RcbeJEUnii4"
+            videoId="tOw5M40uSyk"
+            title="Sugar is sweet but is it vegan? by CBC British Columbia"
+            watchUrl="https://www.youtube.com/watch?v=tOw5M40uSyk"
           />
         </div>
       </section>

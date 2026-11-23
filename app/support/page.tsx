@@ -2,7 +2,7 @@ import { SupportForm } from "./support-form";
 import { Eyebrow } from "@/components/ui";
 import { isDbConfigured } from "@/lib/db";
 
-export const metadata = { title: "Support the Initiative", description: "Offer suitable sugar, coordination help, or introductions." };
+export const metadata = { title: "Support Temple Initiative", description: "Offer suitable sugar, coordination help, or introductions to Temple Initiative." };
 
 export default function SupportPage() {
   const dbReady = isDbConfigured();
@@ -11,7 +11,7 @@ export default function SupportPage() {
       <Eyebrow>Support</Eyebrow>
       <h1 className="mt-2 text-4xl font-bold sm:text-5xl">Help support temple communities.</h1>
       <p className="mt-4 text-lg leading-relaxed text-[#4A4238]">
-        Interested in donating suitable sugar, helping coordinate deliveries, or introducing the
+        Temple Initiative’s current campaign focuses on vegan-sugar awareness. Interested in donating suitable sugar, helping coordinate deliveries, or introducing the
         initiative to your temple? Tell us how you would like to help.
       </p>
       <div role="note" className="mt-6 rounded-2xl border border-[#D8A679] bg-[#FFF8EF] p-5 text-[15px] leading-relaxed">

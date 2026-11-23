@@ -4,19 +4,19 @@ import { isDbConfigured } from "@/lib/db";
 
 export const metadata = {
   title: "Request Sugar",
-  description: "Submit a sugar donation request for your Hindu temple.",
+  description: "Authorized temple representatives may request donation support for consideration. Reviewed individually; not guaranteed.",
 };
 
 export default function RequestSugarPage() {
   const dbReady = isDbConfigured();
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <Eyebrow>Request a sugar donation</Eyebrow>
-      <h1 className="mt-2 text-4xl font-bold sm:text-5xl">Tell us what your temple needs.</h1>
+      <Eyebrow>Temple support · secondary to awareness</Eyebrow>
+      <h1 className="mt-2 text-4xl font-bold sm:text-5xl">Request sugar for your temple.</h1>
       <p className="mt-4 text-lg leading-relaxed text-[#4A4238]">
-        Requests are reviewed individually. Submitting a request does not guarantee approval or
-        delivery. This program is for Hindu temples in the United States, not individual
-        household requests.
+        Temple Initiative’s current campaign focuses on vegan-sugar awareness. This form lets
+        authorized temple representatives request donation support when resources are available.
+        Requests are reviewed individually. Donations and delivery are not guaranteed.
       </p>
       {!dbReady && (
         <div role="alert" className="mt-6 rounded-2xl border border-[#B3261E] bg-[#FDECEA] p-5">

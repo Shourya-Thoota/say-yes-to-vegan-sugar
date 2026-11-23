@@ -2,7 +2,7 @@ import { ContactForm } from "./contact-form";
 import { Eyebrow } from "@/components/ui";
 import { isDbConfigured } from "@/lib/db";
 
-export const metadata = { title: "Contact", description: "Contact the Say Yes to Vegan Sugar initiative." };
+export const metadata = { title: "Contact", description: "Contact Temple Initiative about the Say Yes to Vegan Sugar campaign." };
 
 export default function ContactPage() {
   const dbReady = isDbConfigured();
@@ -11,7 +11,7 @@ export default function ContactPage() {
       <Eyebrow>Contact</Eyebrow>
       <h1 className="mt-2 text-4xl font-bold sm:text-5xl">Get in touch.</h1>
       <p className="mt-4 text-lg leading-relaxed text-[#4A4238]">
-        Questions about the initiative, your request, or a support offer? Send us a message and
+        Questions about Temple Initiative, your request, or a support offer? Send us a message and
         we will get back to you. Please do not include sensitive personal information beyond
         what the form asks for.
       </p>

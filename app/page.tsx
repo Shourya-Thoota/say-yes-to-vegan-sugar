@@ -1,182 +1,269 @@
 import Link from "next/link";
 import { Accordion } from "@/components/accordion";
-import { Card, Eyebrow } from "@/components/ui";
-import { SugarBowlIllustration } from "@/components/brand-mark";
+import { Eyebrow } from "@/components/ui";
+import { TempleHeroIllustration } from "@/components/brand-mark";
+import { ShareSection } from "@/components/share-section";
+import { VideoEmbed } from "@/components/video-embed";
 
 export const metadata = {
-  title: "Say Yes to Vegan Sugar — A thoughtful choice for every offering",
+  title: "Temple Initiative | Say Yes to Vegan Sugar",
   description:
-    "Help your temple make informed choices about vegan sugar for prasadam, offerings, and community meals.",
+    "Temple Initiative’s Say Yes to Vegan Sugar campaign helps temple communities check sugar-processing information, make informed choices, and share awareness.",
 };
 
 const FAQ_PREVIEW = [
   {
-    q: "What does vegan sugar mean for this initiative?",
-    a: "For this initiative, we seek sugar documented as processed without animal-derived processing aids. Sugar-processing methods can vary by manufacturer and product, so we encourage checking product-specific labeling and manufacturer information.",
+    q: "Why does sugar processing matter to some vegetarian and vegan communities?",
+    a: "Some cane-sugar refining uses bone char, a filtering aid made from animal bones, to remove color. Communities that avoid animal-derived processing aids may wish to choose sugar documented as processed without them. Sugar itself does not contain bone char as an ingredient; the concern is about how it was filtered.",
   },
   {
-    q: "Who can request sugar?",
-    a: "Authorized representatives of Hindu temples in the United States may submit a request. Our initial donation program supports selected temples, and each request is reviewed individually.",
+    q: "Is bone char an ingredient in sugar?",
+    a: "No. Bone char is a processing or filtering aid used in some refining, not an ingredient left in finished sugar. That distinction matters: the question is whether animal-derived aids were used during processing, not whether sugar contains them.",
   },
   {
-    q: "Are donations guaranteed?",
-    a: "No. A submitted request is not a confirmed delivery. Approval and delivery depend on review, available resources, and confirmed delivery arrangements.",
+    q: "Does every sugar product use the same processing method?",
+    a: "No. Sugar-processing methods can vary by manufacturer and product. If your temple avoids animal-derived processing aids, check product-specific labeling and manufacturer information before purchasing.",
   },
   {
-    q: "How can I help?",
-    a: "You can offer suitable sugar, help coordinate deliveries, introduce the initiative to your temple, or volunteer. Use the Support page to tell us how you would like to help.",
+    q: "How can I check a specific product?",
+    a: "Identify the exact manufacturer, product name, and package; look for product-specific vegan labeling or manufacturer information; and contact the manufacturer when the answer is unclear. Keep the response for your purchasing records.",
+  },
+  {
+    q: "Can I rely on a retailer or brand name alone?",
+    a: "No. Processing can differ between products, facilities, and time periods. Check the specific product and package rather than assuming every product from a brand or retailer is processed the same way.",
+  },
+  {
+    q: "How can I share this message with my temple?",
+    a: "Start one conversation: use the sharing tools below to send this page to temple volunteers, kitchen teams, family, and friends. Nothing is sent automatically; you choose where to share.",
+  },
+  {
+    q: "Can a temple request donated sugar?",
+    a: "Authorized temple representatives may submit a request for consideration through the form below. Requests are reviewed individually. Donations and delivery are not guaranteed.",
   },
 ];
 
 export default function HomePage() {
   return (
     <div>
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 md:pt-16">
-        <div className="grid items-center gap-10 md:grid-cols-2">
-          <div>
-            <Eyebrow>A community initiative for Hindu temples</Eyebrow>
-            <h1 className="mt-3 text-4xl font-bold leading-[1.08] sm:text-5xl">
-              A thoughtful choice for every offering.
+      {/* A. PSA hero */}
+      <section className="mx-auto max-w-6xl px-4 pb-12 pt-12 sm:px-6 md:pt-16">
+        <div className="grid items-start gap-10 md:grid-cols-[1.05fr_0.95fr]">
+          <div className="md:pt-4">
+            <Eyebrow>A public-service message from Temple Initiative</Eyebrow>
+            <h1 className="mt-4 text-5xl font-bold leading-[1.04] sm:text-6xl">
+              Say yes to vegan sugar.
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#4A4238]">
-              Help your temple make informed choices about vegan sugar for prasadam, offerings,
-              and community meals. Learn what to check—or request a sugar donation for your temple.
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-[#4A4238]">
+              When choosing sugar for prasadam, offerings, and community meals, check how the
+              specific product is processed. Help your temple make an informed choice—and share the
+              message with others.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
-                href="/request-sugar"
+                href="/#what-to-look"
                 className="rounded-full bg-terracotta-deeper px-7 py-3.5 text-center text-base font-semibold text-white shadow-sm hover:bg-[#7E3B1E]"
               >
-                Request a Sugar Donation
+                Learn What to Check
               </Link>
               <Link
-                href="/choosing-sugar"
+                href="/#share"
                 className="rounded-full border border-terracotta-deeper bg-white px-7 py-3.5 text-center text-base font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
               >
-                Learn What to Look For
+                Share This Message
               </Link>
             </div>
-            <p className="mt-4 text-sm text-[#6B5E4F]">
-              Supporting selected temples, subject to availability and delivery arrangements.
+            <p className="mt-5 text-[15px] text-[#6B5E4F]">
+              <Link href="/request-sugar" className="font-semibold text-terracotta-deeper underline underline-offset-4">
+                Need sugar for your temple? Request support.
+              </Link>
             </p>
           </div>
-          <div className="flex justify-center md:justify-end">
-            <Card className="w-full max-w-md">
-              <SugarBowlIllustration />
-              <p className="mt-2 text-center text-sm text-[#6B5E4F]">
-                Sugar-processing methods can vary by manufacturer and product. This initiative
-                encourages temples to check product-specific labeling and manufacturer information
-                when choosing sugar.
+          <div className="md:justify-self-end md:pt-2">
+            <TempleHeroIllustration className="w-full max-w-lg" />
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#6B5E4F]">
+              Original illustration for this campaign. Sugar-processing methods can vary by
+              manufacturer and product—check the specific package.
+            </p>
+          </div>
+        </div>
+        <hr className="mt-12 border-t border-[#D8CCB8]" aria-hidden="true" />
+        <p className="mt-4 text-sm uppercase tracking-[0.14em] text-[#6B5E4F]">
+          Temple Initiative · Current campaign: Say Yes to Vegan Sugar
+        </p>
+      </section>
+
+      {/* B. What the concern is */}
+      <section id="why-check" aria-labelledby="why-check-heading" className="bg-white">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <Eyebrow>Why check the sugar?</Eyebrow>
+            <h2 id="why-check-heading" className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">
+              Some white sugar is filtered with an animal-derived aid.
+            </h2>
+          </div>
+          <div className="max-w-2xl text-[17px] leading-relaxed text-[#3E372E]">
+            <p>
+              Some cane-sugar refining uses{" "}
+              <strong>bone char</strong>—a granular filtering material made from animal
+              bones—to remove color during processing. It acts as a processing aid; it is not an
+              ingredient left in the finished sugar.{" "}
+              <a className="source-link" href="https://www.epa.gov/sites/default/files/2020-10/documents/c9s10-1a.pdf" target="_blank" rel="noopener noreferrer">
+                Source: EPA, Sugarcane Processing [PDF]
+              </a>
+            </p>
+            <p className="mt-4">
+              Use varies by refinery and product. For example, Domino Foods states that it uses
+              natural charcoal (bone char) for decolorization at specific refineries,{" "}
+              <a className="source-link" href="https://asr-group.com/sites/default/files/2026-01/BSE-TSE%20Statement%20-%20DFI%20Web.pdf" target="_blank" rel="noopener noreferrer">
+                Source: Domino Foods statement [PDF]
+              </a>{" "}
+              while its turbinado sugar “is made without using natural charcoal as a filter and is
+              vegan.”{" "}
+              <a className="source-link" href="https://www.dominosugar.com/baking-tips-how-tos/turbinado-faq" target="_blank" rel="noopener noreferrer">
+                Source: Domino Turbinado FAQs
+              </a>
+            </p>
+            <p className="mt-4">
+              Other producers document a different path: Wholesome Sweeteners states that all of its
+              sugar products are vegan and that it does not process any of them through bone or
+              animal by-products.{" "}
+              <a className="source-link" href="https://wholesomesweet.com/pages/faq" target="_blank" rel="noopener noreferrer">
+                Source: Wholesome FAQs
+              </a>{" "}
+              Certification programs such as Vegan Action do not allow sugar refined through bone
+              char to carry the Certified Vegan Logo and require manufacturer documentation.{" "}
+              <a className="source-link" href="https://vegan.org/certification/certification-faqs" target="_blank" rel="noopener noreferrer">
+                Source: Vegan Action FAQs
+              </a>
+            </p>
+            <p className="mt-4 border-l-4 border-[#E8865A] bg-[#F5F0E8] px-5 py-4 text-[16px]">
+              <strong>The careful standard:</strong> sugar-processing methods can vary by
+              manufacturer and product. If your temple avoids animal-derived processing aids, check
+              product-specific labeling and manufacturer information before purchasing.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* C. Why temple communities may care */}
+      <section aria-labelledby="thoughtful-check-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <p className="font-heading text-2xl italic leading-snug text-[#4A4238] sm:text-3xl">
+          “If your community follows vegetarian or vegan purchasing standards, include sugar in your
+          ingredient review. A quick product check can help volunteers make consistent, informed
+          choices.”
+        </p>
+        <h2 id="thoughtful-check-heading" className="mt-4 text-sm font-bold uppercase tracking-[0.14em] text-terracotta-deeper">
+          A thoughtful check for temple kitchens
+        </h2>
+        <p className="mt-4 max-w-3xl leading-relaxed text-[#4A4238]">
+          Many temples already review ghee, milk, and other ingredients with care. Sugar deserves
+          the same attention—not because sugar is unsafe, but because the filtering method is not
+          visible in the finished crystals and cannot be judged by appearance. We do not prescribe
+          religious rules, and we respect that temples interpret vegetarian standards differently.
+        </p>
+      </section>
+
+      {/* D. Practical steps */}
+      <section id="what-to-look" aria-labelledby="what-to-look-heading" className="border-y border-[#E5DCCB] bg-[#EFE7D8]">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <Eyebrow>What to look for</Eyebrow>
+            <h2 id="what-to-look-heading" className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">
+              Three things to do before buying.
+            </h2>
+            <p className="mt-4 leading-relaxed text-[#4A4238]">
+              For this campaign, we seek sugar documented as processed without animal-derived
+              processing aids.
+            </p>
+            <Link href="/choosing-sugar" className="mt-6 inline-block rounded-full bg-charcoal px-6 py-3 font-semibold text-white hover:bg-black">
+              Open the full guide
+            </Link>
+          </div>
+          <ol className="divide-y divide-[#D8CCB8] border-y border-[#D8CCB8]">
+            {[
+              { t: "Identify the exact product.", d: "Check the manufacturer, product name, and package—not just the retailer." },
+              { t: "Look for clear documentation.", d: "Review product-specific vegan labeling or manufacturer information." },
+              { t: "Ask when the answer is unclear.", d: "Contact the manufacturer and keep its response for your purchasing records." },
+            ].map((s, i) => (
+              <li key={s.t} className="grid grid-cols-[3.5rem_1fr] gap-4 py-6">
+                <span className="font-heading text-4xl font-bold text-terracotta-deeper" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <div>
+                  <h3 className="font-heading text-xl font-bold">{s.t}</h3>
+                  <p className="mt-1 leading-relaxed text-[#4A4238]">{s.d}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* E. Verified video */}
+      <section aria-labelledby="video-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <Eyebrow>Watch</Eyebrow>
+        <h2 id="video-heading" className="mt-2 max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">
+          See how sugar is processed.
+        </h2>
+        <p className="mt-4 max-w-3xl text-[17px] leading-relaxed text-[#4A4238]">
+          Processing methods can differ. These videos provide context; check the documentation for
+          the specific sugar your temple purchases.
+        </p>
+        <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_1.2fr]">
+          <div>
+            <h3 className="font-heading text-2xl font-bold">Is Sugar Vegan?</h3>
+            <p className="mt-1 text-[15px] font-semibold text-[#6B5E4F]">BiteSizeVegan.org · YouTube</p>
+            <p className="mt-4 leading-relaxed text-[#4A4238]">
+              An educational explainer on why some cane sugar is filtered with bone char and how
+              shoppers think about alternatives such as less-refined or certified options. Relevant
+              here because it walks through the filtering step—not a single brand—and points back
+              to checking the specific product. The creator does not endorse Temple Initiative.
+            </p>
+            <div className="mt-4 rounded-2xl bg-white p-5 text-[15px] leading-relaxed text-[#4A4238]">
+              <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6B5E4F]">Text summary</p>
+              <p className="mt-2">
+                Bone char can be used to decolorize some cane sugar; it is a processing aid, not an
+                ingredient. Methods vary by maker and product, so a responsible check means reading
+                the exact package and confirming with the manufacturer. This page—not the
+                video—remains the complete guide.
               </p>
-            </Card>
+              <a
+                href="https://www.youtube.com/watch?v=RcbeJEUnii4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-block font-semibold text-terracotta-deeper underline underline-offset-4"
+              >
+                Watch on YouTube
+              </a>
+            </div>
           </div>
+          <VideoEmbed
+            videoId="RcbeJEUnii4"
+            title="Is Sugar Vegan? by BiteSizeVegan.org"
+            watchUrl="https://www.youtube.com/watch?v=RcbeJEUnii4"
+          />
         </div>
       </section>
 
-      {/* Mission */}
-      <section className="border-y border-[#E5DCCB] bg-white">
+      {/* F. Sharing */}
+      <section id="share" aria-labelledby="share-heading" className="border-y border-[#E5DCCB] bg-white">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-          <Eyebrow>Our approach</Eyebrow>
-          <h2 className="mt-2 text-3xl font-bold sm:text-4xl">Small choices. Thoughtful service.</h2>
-          <p className="mt-4 max-w-3xl text-lg leading-relaxed text-[#4A4238]">
-            Our goal is simple: help temple communities make informed sugar choices and connect
-            eligible temples with donated sugar when resources allow. We approach this work with
-            respect for each temple&apos;s traditions, purchasing decisions, and existing practices.
+          <Eyebrow>Share</Eyebrow>
+          <h2 id="share-heading" className="mt-2 max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">
+            Share the message with your temple community.
+          </h2>
+          <p className="mt-4 max-w-3xl text-[17px] leading-relaxed text-[#4A4238]">
+            A small purchasing check can start with one conversation. Share this page with temple
+            volunteers, kitchen teams, family, and friends.
           </p>
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
-            <Card>
-              <div aria-hidden="true" className="text-3xl text-terracotta-deeper">◯</div>
-              <h3 className="mt-3 text-xl font-bold">Understand the concern</h3>
-              <p className="mt-2 leading-relaxed text-[#4A4238]">Learn why some communities ask how sugar is processed.</p>
-              <Link href="/choosing-sugar" className="mt-3 inline-block font-semibold text-terracotta-deeper underline underline-offset-4">Read the guide</Link>
-            </Card>
-            <Card>
-              <div aria-hidden="true" className="text-3xl text-terracotta-deeper">▤</div>
-              <h3 className="mt-3 text-xl font-bold">Check the specific product</h3>
-              <p className="mt-2 leading-relaxed text-[#4A4238]">Look for clear labeling and reliable manufacturer information.</p>
-              <Link href="/choosing-sugar" className="mt-3 inline-block font-semibold text-terracotta-deeper underline underline-offset-4">See the checklist</Link>
-            </Card>
-            <Card>
-              <div aria-hidden="true" className="text-3xl text-terracotta-deeper">♡</div>
-              <h3 className="mt-3 text-xl font-bold">Request community support</h3>
-              <p className="mt-2 leading-relaxed text-[#4A4238]">Tell us what your temple needs so we can review your request.</p>
-              <Link href="/request-sugar" className="mt-3 inline-block font-semibold text-terracotta-deeper underline underline-offset-4">Start a request</Link>
-            </Card>
-          </div>
+          <ShareSection />
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <Eyebrow>How it works</Eyebrow>
-        <h2 className="mt-2 text-3xl font-bold sm:text-4xl">Three careful steps</h2>
-        <ol className="mt-8 grid gap-5 md:grid-cols-3">
-          {[
-            { n: "1", t: "Submit your temple's request.", d: "An authorized temple representative shares temple details, contact information, and needs." },
-            { n: "2", t: "Our team reviews the details and may contact you.", d: "Each request is reviewed individually. We may ask for clarification before any decision." },
-            { n: "3", t: "If approved and resources allow, we coordinate delivery.", d: "We coordinate the product and delivery directly with your temple after written approval." },
-          ].map((s) => (
-            <li key={s.n}>
-              <Card className="h-full">
-                <p className="flex h-10 w-10 items-center justify-center rounded-full bg-terracotta-deeper font-heading text-lg font-bold text-white" aria-hidden="true">{s.n}</p>
-                <h3 className="mt-4 text-xl font-bold">{s.t}</h3>
-                <p className="mt-2 leading-relaxed text-[#4A4238]">{s.d}</p>
-              </Card>
-            </li>
-          ))}
-        </ol>
-        <div className="mt-6 rounded-2xl border border-[#D8A679] bg-[#FFF8EF] p-5 text-[15px] leading-relaxed" role="note">
-          <strong>A submitted request is not a confirmed delivery.</strong> Please wait for written approval and delivery arrangements.
-        </div>
-      </section>
-
-      {/* Education preview */}
-      <section className="border-y border-[#E5DCCB] bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-          <Eyebrow>Choosing sugar</Eyebrow>
-          <h2 className="mt-2 text-3xl font-bold sm:text-4xl">Know what to look for.</h2>
-          <p className="mt-4 max-w-3xl text-lg leading-relaxed text-[#4A4238]">
-            For this initiative, we seek sugar documented as processed without animal-derived
-            processing aids. Because methods vary by manufacturer and product, always check the
-            specific package and confirm with the manufacturer when information is unclear.
-          </p>
-          <Link href="/choosing-sugar" className="mt-5 inline-block rounded-full bg-charcoal px-6 py-3 font-semibold text-white hover:bg-black">
-            Open the Choosing-Sugar Guide
-          </Link>
-        </div>
-      </section>
-
-      {/* Invitation + support */}
-      <section className="mx-auto max-w-6xl grid gap-5 px-4 py-14 sm:px-6 md:grid-cols-2">
-        <Card>
-          <Eyebrow>Temple invitation</Eyebrow>
-          <h2 className="mt-2 text-2xl font-bold sm:text-3xl">An invitation to temple communities.</h2>
-          <p className="mt-3 leading-relaxed text-[#4A4238]">
-            We welcome inquiries from Hindu temples across the United States. Our initial donation
-            program supports selected temples, and each request is reviewed individually.
-          </p>
-          <Link href="/request-sugar" className="mt-5 inline-block rounded-full bg-terracotta-deeper px-6 py-3 font-semibold text-white hover:bg-[#7E3B1E]">
-            Request a Sugar Donation
-          </Link>
-        </Card>
-        <Card>
-          <Eyebrow>Community support</Eyebrow>
-          <h2 className="mt-2 text-2xl font-bold sm:text-3xl">Help make thoughtful giving possible.</h2>
-          <p className="mt-3 leading-relaxed text-[#4A4238]">
-            Interested in donating suitable sugar, helping coordinate deliveries, or introducing
-            the initiative to your temple? Tell us how you would like to help.
-          </p>
-          <Link href="/support" className="mt-5 inline-block rounded-full border border-terracotta-deeper px-6 py-3 font-semibold text-terracotta-deeper hover:bg-terracotta-soft">
-            Offer Your Support
-          </Link>
-        </Card>
-      </section>
-
-      {/* FAQ preview */}
-      <section className="mx-auto max-w-4xl px-4 pb-14 sm:px-6">
+      {/* G. FAQ */}
+      <section id="faq" aria-labelledby="faq-heading" className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
         <Eyebrow>Questions</Eyebrow>
-        <h2 className="mt-2 text-3xl font-bold">Common questions</h2>
+        <h2 id="faq-heading" className="mt-2 text-3xl font-bold sm:text-4xl">Common questions.</h2>
         <div className="mt-6">
           <Accordion items={FAQ_PREVIEW} />
         </div>
@@ -185,16 +272,23 @@ export default function HomePage() {
         </Link>
       </section>
 
-      {/* Final CTA */}
-      <section className="border-t border-[#E5DCCB] bg-charcoal text-white">
-        <div className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6">
-          <h2 className="text-3xl font-bold sm:text-4xl">Does your temple need sugar?</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-[#EDE6D8]">
-            Share your temple&apos;s needs. We&apos;ll review your request and contact you about possible next steps.
+      {/* H. Secondary donation request */}
+      <section aria-labelledby="request-heading" className="border-t border-[#E5DCCB] bg-[#EFE7D8]">
+        <div className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
+          <Eyebrow>Temple support</Eyebrow>
+          <h2 id="request-heading" className="mt-2 text-3xl font-bold sm:text-4xl">
+            Need help sourcing sugar for your temple?
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-[#4A4238]">
+            Our main goal is awareness. When resources allow, we also help selected temples with
+            sugar donations. Authorized temple representatives can submit a request for consideration.
           </p>
-          <Link href="/request-sugar" className="mt-7 inline-block rounded-full bg-terracotta px-8 py-3.5 text-base font-bold text-charcoal hover:bg-[#F09A6E]">
-            Request a Sugar Donation
+          <Link href="/request-sugar" className="mt-7 inline-block rounded-full bg-charcoal px-8 py-3.5 text-base font-semibold text-white hover:bg-black">
+            Request Sugar for Your Temple
           </Link>
+          <p className="mt-4 text-sm text-[#6B5E4F]">
+            Requests are reviewed individually. Donations and delivery are not guaranteed.
+          </p>
         </div>
       </section>
     </div>

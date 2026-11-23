@@ -1,6 +1,6 @@
 import { Eyebrow } from "@/components/ui";
 
-export const metadata = { title: "Terms", description: "Terms for using the Say Yes to Vegan Sugar website." };
+export const metadata = { title: "Terms", description: "Terms for using the Temple Initiative website." };
 
 export default function TermsPage() {
   return (
@@ -10,7 +10,7 @@ export default function TermsPage() {
       <p className="mt-2 text-sm text-[#6B5E4F]">Plain-language draft. Operator and legal details are still being finalized.</p>
       <div className="mt-6 space-y-6 leading-relaxed text-[#3E372E]">
         <section><h2 className="font-heading text-xl font-bold">What this site is</h2>
-          <p className="mt-2">Say Yes to Vegan Sugar is an independent community initiative website. It provides educational information and accepts donation requests, support offers, and contact messages. It is not an online store.</p></section>
+          <p className="mt-2">Temple Initiative is a public-awareness website. Its current campaign is Say Yes to Vegan Sugar. It provides educational information and accepts donation requests, support offers, and contact messages. It is not an online store.</p></section>
         <section><h2 className="font-heading text-xl font-bold">No guarantees</h2>
           <p className="mt-2">Submitting a request does not guarantee approval or delivery. Fulfillment depends on review, available resources, and confirmed delivery arrangements. Do not rely on a donation before written approval and coordination.</p></section>
         <section><h2 className="font-heading text-xl font-bold">No tax claims</h2>

@@ -1,20 +1,20 @@
 import { Accordion } from "@/components/accordion";
 import { Eyebrow } from "@/components/ui";
 
-export const metadata = { title: "Frequently Asked Questions", description: "Answers about the initiative, eligibility, and how to help." };
+export const metadata = { title: "Frequently Asked Questions", description: "Answers about sugar processing, product checks, sharing, and donation requests." };
 
 const ITEMS = [
-  { q: "What is the initiative's goal?", a: "To help Hindu temple communities in the United States make informed sugar choices and, when resources allow, connect eligible temples with donated vegan sugar for prasadam, offerings, festivals, and community meals." },
-  { q: "What does vegan sugar mean for this initiative?", a: "For this initiative, we seek sugar documented as processed without animal-derived processing aids. Sugar-processing methods can vary by manufacturer and product. This initiative encourages temples to check product-specific labeling and manufacturer information when choosing sugar." },
-  { q: "Are all products from one brand processed the same way?", a: "Not necessarily. Processing methods can vary by product, manufacturing facility, and time period. Check the specific product and package rather than assuming every product from a brand is processed the same way." },
-  { q: "How can a temple check a specific product?", a: "Identify the exact product and manufacturer, look for explicit product-specific vegan labeling or documentation, contact the manufacturer if the information is unclear, keep the response and the date checked, and recheck when products or manufacturing information change. Our Choosing Sugar page includes a checklist and an inquiry template." },
-  { q: "Who can request sugar?", a: "Authorized representatives of Hindu temples in the United States may submit a request through the Request Sugar form. The program is not for individual household requests." },
-  { q: "Are donations guaranteed?", a: "No. A submitted request is not a confirmed delivery. Each request is reviewed individually, and fulfillment depends on approval, available resources, and confirmed delivery arrangements. Please wait for written approval and delivery arrangements." },
-  { q: "Is delivery available everywhere?", a: "No. Our initial donation program supports selected temples, and delivery arrangements must be confirmed in advance. Temples should not rely on a donation before approval and coordination." },
+  { q: "Why does sugar processing matter to some vegetarian and vegan communities?", a: "Some cane-sugar refining uses bone char, a filtering aid made from animal bones, to remove color. Communities that avoid animal-derived processing aids may wish to choose sugar documented as processed without them. Sugar itself does not contain bone char as an ingredient; the concern is about how it was filtered." },
+  { q: "Is bone char an ingredient in sugar?", a: "No. Bone char is a processing or filtering aid used in some refining, not an ingredient left in finished sugar. The question is whether animal-derived aids were used during processing, not whether sugar contains them." },
+  { q: "Does every sugar product use the same processing method?", a: "No. Processing methods can vary by manufacturer and product, and can differ between facilities and time periods. Check the specific product and package rather than assuming every product from a brand is processed the same way." },
+  { q: "How can I check a specific product?", a: "Identify the exact product and manufacturer, look for explicit product-specific vegan labeling or documentation, contact the manufacturer if the information is unclear, keep the response and the date checked, and recheck when products or manufacturing information change. Our Choosing-Sugar Guide includes a checklist and an inquiry template." },
+  { q: "Can I rely on a retailer or brand name alone?", a: "No. A retailer stocks products from many manufacturers, and one brand can use different processes for different products. Always verify the exact manufacturer, product name, and package." },
+  { q: "How can I share this message with my temple?", a: "Use the sharing tools on the homepage to send this page to temple volunteers, kitchen teams, family, and friends. Nothing is sent automatically; you choose where to share." },
+  { q: "What does vegan sugar mean for this campaign?", a: "For this campaign, we seek sugar documented as processed without animal-derived processing aids. Sugar-processing methods can vary by manufacturer and product, so we encourage checking product-specific labeling and manufacturer information." },
+  { q: "Can a temple request donated sugar?", a: "Authorized representatives of temples may submit a request through the Request Sugar form. The program is not for individual household requests. Each request is reviewed individually; donations and delivery are not guaranteed." },
+  { q: "Is delivery available everywhere?", a: "No. Donation support depends on review, available resources, and confirmed delivery arrangements. Temples should not rely on a donation before written approval and coordination." },
   { q: "Can we request sugar for a festival?", a: "Yes. Select Festival or event as an intended use and share the date you need the sugar by. Festival requests follow the same review process and are not guaranteed." },
-  { q: "Can individuals request sugar?", a: "No. This program serves Hindu temples and their authorized representatives, not individual households." },
-  { q: "How can I help?", a: "You can offer suitable sugar, help coordinate deliveries, introduce the initiative to your temple, or volunteer. Use the Support page to describe how you would like to help. Please contact us before purchasing or shipping sugar so suitability, quantities, and delivery can be confirmed." },
-  { q: "Does outreach mean a temple is a partner?", a: "No. Contacting a temple or receiving an inquiry does not establish affiliation, endorsement, or partnership. Participation and fulfillment are subject to confirmation." },
+  { q: "How can I help?", a: "You can offer suitable sugar, help coordinate deliveries, introduce Temple Initiative to your temple, or volunteer. Use the Support page to describe how you would like to help. Please contact us before purchasing or shipping sugar so suitability, quantities, and delivery can be confirmed." },
 ];
 
 export default function FaqPage() {
@@ -22,7 +22,7 @@ export default function FaqPage() {
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
       <Eyebrow>FAQ</Eyebrow>
       <h1 className="mt-2 text-4xl font-bold sm:text-5xl">Questions and answers.</h1>
-      <p className="mt-4 text-lg text-[#4A4238]">Respectful, practical answers about eligibility, process, and limits.</p>
+      <p className="mt-4 text-lg text-[#4A4238]">Processing facts first; donation logistics last.</p>
       <div className="mt-8"><Accordion items={ITEMS} /></div>
     </div>
   );

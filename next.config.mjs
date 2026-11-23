@@ -21,7 +21,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' accounts.google.com https://*.ingest.sentry.io https://*.ingest.de; frame-src accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' accounts.google.com https://*.ingest.sentry.io https://*.ingest.de; frame-src accounts.google.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self';",
           },
         ],
       },

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrandMark } from "./brand-mark";
 
 const NAV = [
@@ -13,6 +13,14 @@ const NAV = [
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open ]);
   return (
     <header className="sticky top-0 z-40 border-b border-[#E5DCCB] bg-[#F5F0E8]/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">

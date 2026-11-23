@@ -206,7 +206,7 @@ export default function HomePage() {
           See how sugar is processed.
         </h2>
         <p className="mt-4 max-w-3xl text-[17px] leading-relaxed text-[#4A4238]">
-          Processing methods can differ. These videos provide context; check the documentation for
+          Processing methods can differ. This video provides context; check the documentation for
           the specific sugar your temple purchases.
         </p>
         <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_1.2fr]">

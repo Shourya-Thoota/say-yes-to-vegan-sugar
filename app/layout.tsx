@@ -19,6 +19,10 @@ export const metadata: Metadata = {
     images: [{ url: "/og.svg", width: 1200, height: 630, alt: "Temple Initiative — Say Yes to Vegan Sugar" }],
   },
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/favicon.ico", sizes: "any" }, { url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

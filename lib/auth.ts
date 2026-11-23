@@ -7,7 +7,7 @@ const cfg = getServerConfig();
 const useSecureCookies = (process.env.NEXT_PUBLIC_SITE_URL ?? "").startsWith("https://");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  trustHost: getServerConfig().trustHost,
   secret: process.env.AUTH_SECRET,
   providers: [
     Google({

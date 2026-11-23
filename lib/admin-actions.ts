@@ -6,6 +6,8 @@ import { getDb } from "./db";
 import { donationRequests, requestNotes, statusHistory } from "./schema";
 import { requireAdmin } from "./auth";
 import { adminNoteSchema, adminStatusSchema } from "./validation";
+import { getServerConfig } from "./config";
+import { captureVerificationEvent, reportHandledError } from "./sentry";
 
 export async function updateRequestStatus(requestId: string, formData: FormData) {
   const admin = await requireAdmin();
@@ -22,18 +24,25 @@ export async function updateRequestStatus(requestId: string, formData: FormData)
   if (current.length === 0) throw new Error("Request not found.");
   const fromStatus = current[0].status;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(donationRequests)
-      .set({ status: parsed.data.status, deliveryNotes: parsed.data.deliveryNotes || null, updatedAt: new Date() })
-      .where(eq(donationRequests.id, requestId));
-    await tx.insert(statusHistory).values({
-      requestId,
-      fromStatus,
-      toStatus: parsed.data.status,
-      changedBy: admin.email,
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(donationRequests)
+        .set({ status: parsed.data.status, deliveryNotes: parsed.data.deliveryNotes || null, updatedAt: new Date() })
+        .where(eq(donationRequests.id, requestId));
+      await tx.insert(statusHistory).values({
+        requestId,
+        fromStatus,
+        toStatus: parsed.data.status,
+        changedBy: admin.email,
+      });
     });
-  });
+  } catch {
+    // Fixed message + safe tags only; the DB error is never forwarded. Throw
+    // a new generic error so automatic capture can only ever see safe text.
+    reportHandledError("admin_request_status_update");
+    throw new Error("Status update failed.");
+  }
   revalidatePath("/admin");
   revalidatePath(`/admin/requests/${requestId}`);
 }
@@ -47,4 +56,19 @@ export async function addRequestNote(requestId: string, formData: FormData) {
   if (!db) throw new Error("Database unavailable.");
   await db.insert(requestNotes).values({ requestId, authorEmail: admin.email, body: parsed.data.body.trim() });
   revalidatePath(`/admin/requests/${requestId}`);
+}
+
+/**
+ * Admin-only synthetic Sentry verification event.
+ *
+ * Guarded twice: requires an authenticated admin AND
+ * SENTRY_TEST_ENABLED=true in the environment. The event carries a fixed
+ * message with no personal information. Disable (unset the flag and redeploy)
+ * after verification.
+ */
+export async function sendSentryVerificationEvent(): Promise<void> {
+  const admin = await requireAdmin();
+  if (!admin) throw new Error("Unauthorized");
+  if (!getServerConfig().sentryTestEnabled) return;
+  captureVerificationEvent();
 }

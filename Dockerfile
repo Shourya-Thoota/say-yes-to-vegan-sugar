@@ -2,7 +2,8 @@
 # Build: docker build -t vegansugar .
 # Run: docker run -e DATABASE_URL=... -e AUTH_SECRET=... -p 3000:3000 vegansugar
 
-FROM node:20.18.1-bookworm-slim AS base
+# Node 20 is end-of-life (2026-04-30, no security fixes). Node 24 is Maintenance LTS until 2028-04-30.
+FROM node:24.22.3-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 
@@ -11,10 +12,18 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 FROM base AS builder
+# Public build-time values (inlined into the browser bundle by Next.js).
+# Railway: set these as build-time variables, then rebuild. Runtime-only
+# variables cannot update the already-built bundle, so changing them later
+# requires a rebuild. The DSN only receives error events (safe to expose);
+# never pass secrets (SENTRY_AUTH_TOKEN, AUTH_SECRET, ...) as build args.
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ARG NEXT_PUBLIC_SENTRY_DSN=""
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Build public pages without requiring runtime secrets.
-ENV NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 RUN npm run build
 
 FROM base AS runner

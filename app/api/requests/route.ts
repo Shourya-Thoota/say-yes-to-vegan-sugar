@@ -5,6 +5,7 @@ import { donationRequests, statusHistory } from "@/lib/schema";
 import { donationRequestSchema, flattenZodErrors } from "@/lib/validation";
 import { generatePublicRef } from "@/lib/reference";
 import { bucketKey, checkRateLimit } from "@/lib/rate-limit";
+import { reportHandledError } from "@/lib/sentry";
 
 export async function POST(req: Request) {
   // Request-size limit
@@ -67,46 +68,49 @@ export async function POST(req: Request) {
     }
 
     const publicRef = generatePublicRef("SVS");
-    const inserted = await db
-      .insert(donationRequests)
-      .values({
-        publicRef,
-        idempotencyKey: v.idempotencyKey,
-        templeName: v.templeName.trim(),
-        templeWebsite: v.templeWebsite?.trim() || null,
-        streetAddress: v.streetAddress.trim(),
-        addressLine2: v.addressLine2?.trim() || null,
-        city: v.city.trim(),
-        state: v.state,
-        zipCode: v.zipCode.trim(),
-        country: "US",
-        contactName: v.contactName.trim(),
-        contactRole: v.contactRole.trim(),
-        contactEmail: v.contactEmail.trim().toLowerCase(),
-        contactPhone: v.contactPhone?.trim() || null,
-        preferredContact: v.preferredContact,
-        authorized: true,
-        authorizedAt: new Date(),
-        quantityPounds: Math.round(Number(v.quantityPounds)),
-        dateNeeded: v.dateNeeded || null,
-        intendedUse: v.intendedUse,
-        otherUseExplanation: v.otherUseExplanation?.trim() || null,
-        currentProduct: v.currentProduct?.trim() || null,
-        productPreferences: v.productPreferences?.trim() || null,
-        deliveryInstructions: v.deliveryInstructions?.trim() || null,
-        additionalNotes: v.additionalNotes?.trim() || null,
-        understandsNoGuarantee: true,
-        privacyConsent: true,
-        privacyPolicyVersion: "v1",
-        status: "submitted",
-      })
-      .returning({ id: donationRequests.id, publicRef: donationRequests.publicRef });
-
-    await db.insert(statusHistory).values({
-      requestId: inserted[0].id,
-      fromStatus: null,
-      toStatus: "submitted",
-      changedBy: "system",
+    // Request row + initial audit entry must succeed or fail together.
+    const inserted = await db.transaction(async (tx) => {
+      const rows = await tx
+        .insert(donationRequests)
+        .values({
+          publicRef,
+          idempotencyKey: v.idempotencyKey,
+          templeName: v.templeName.trim(),
+          templeWebsite: v.templeWebsite?.trim() || null,
+          streetAddress: v.streetAddress.trim(),
+          addressLine2: v.addressLine2?.trim() || null,
+          city: v.city.trim(),
+          state: v.state,
+          zipCode: v.zipCode.trim(),
+          country: "US",
+          contactName: v.contactName.trim(),
+          contactRole: v.contactRole.trim(),
+          contactEmail: v.contactEmail.trim().toLowerCase(),
+          contactPhone: v.contactPhone?.trim() || null,
+          preferredContact: v.preferredContact,
+          authorized: true,
+          authorizedAt: new Date(),
+          quantityPounds: Math.round(Number(v.quantityPounds)),
+          dateNeeded: v.dateNeeded || null,
+          intendedUse: v.intendedUse,
+          otherUseExplanation: v.otherUseExplanation?.trim() || null,
+          currentProduct: v.currentProduct?.trim() || null,
+          productPreferences: v.productPreferences?.trim() || null,
+          deliveryInstructions: v.deliveryInstructions?.trim() || null,
+          additionalNotes: v.additionalNotes?.trim() || null,
+          understandsNoGuarantee: true,
+          privacyConsent: true,
+          privacyPolicyVersion: "v1",
+          status: "submitted",
+        })
+        .returning({ id: donationRequests.id, publicRef: donationRequests.publicRef });
+      await tx.insert(statusHistory).values({
+        requestId: rows[0].id,
+        fromStatus: null,
+        toStatus: "submitted",
+        changedBy: "system",
+      });
+      return rows;
     });
 
     return NextResponse.json({ ok: true, ref: inserted[0].publicRef }, { status: 201 });
@@ -124,6 +128,8 @@ export async function POST(req: Request) {
       } catch { /* fall through */ }
     }
     console.error("[api/requests] insert failed");
+    // Fixed message + safe tags only; the DB error is never forwarded.
+    reportHandledError("donation_request_create", "/api/requests");
     return NextResponse.json(
       { ok: false, errors: { _form: "We could not save your request. Your values were preserved — please try again." } },
       { status: 500 }

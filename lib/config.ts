@@ -10,6 +10,9 @@ export type ServerConfig = {
   siteUrl: string;
   trustHost: boolean;
   isProduction: boolean;
+  // Optional Sentry error monitoring flag. The DSN itself lives only in
+  // NEXT_PUBLIC_SENTRY_DSN (read by lib/sentry.ts on both runtimes).
+  sentryTestEnabled: boolean;
 };
 
 let cached: ServerConfig | null = null;
@@ -31,6 +34,8 @@ export function getServerConfig(): ServerConfig {
     ).replace(/\/$/, ""),
     trustHost: (process.env.AUTH_TRUST_HOST ?? "true") !== "false",
     isProduction: process.env.NODE_ENV === "production",
+    // Explicitly-enabled admin-only synthetic test event. Default off.
+    sentryTestEnabled: process.env.SENTRY_TEST_ENABLED === "true",
   };
   return cached;
 }

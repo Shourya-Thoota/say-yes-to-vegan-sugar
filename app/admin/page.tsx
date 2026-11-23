@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { requireAdmin, signOut } from "@/lib/auth";
 import { contactInquiries, donationRequests, supportOffers } from "@/lib/schema";
 import { STATUS_LABELS } from "@/lib/csv";
+import { getServerConfig } from "@/lib/config";
+import { sendSentryVerificationEvent } from "@/lib/admin-actions";
 
 export const metadata = { title: "Administrator Dashboard", robots: { index: false, follow: false } };
 
@@ -181,6 +183,21 @@ export default async function AdminPage({
             </article>
           ))}
           {supports.length === 0 && <p className="text-[#6B5E4F]">No support offers yet.</p>}
+        </section>
+      )}
+
+      {getServerConfig().sentryTestEnabled && (
+        <section className="mt-8 rounded-2xl border border-dashed border-[#D8CCB8] bg-white p-5">
+          <h2 className="font-heading text-lg font-bold">Error-monitoring verification (temporary)</h2>
+          <p className="mt-1 text-sm text-[#6B5E4F]">
+            Sends one synthetic Sentry event with no personal information. Visible only while
+            SENTRY_TEST_ENABLED=true. Unset the flag and redeploy after verifying.
+          </p>
+          <form action={sendSentryVerificationEvent} className="mt-3">
+            <button type="submit" className="rounded-full border border-charcoal px-5 py-2 font-semibold">
+              Send synthetic test event
+            </button>
+          </form>
         </section>
       )}
 

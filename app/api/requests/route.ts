@@ -5,6 +5,7 @@ import { donationRequests, statusHistory } from "@/lib/schema";
 import { donationRequestSchema, flattenZodErrors } from "@/lib/validation";
 import { generatePublicRef } from "@/lib/reference";
 import { bucketKey, checkRateLimit } from "@/lib/rate-limit";
+import { reportHandledError } from "@/lib/sentry";
 
 export async function POST(req: Request) {
   // Request-size limit
@@ -127,6 +128,9 @@ export async function POST(req: Request) {
       } catch { /* fall through */ }
     }
     console.error("[api/requests] insert failed");
+    // Sanitized operation-level event: fixed message + safe tags only.
+    // Never forwards the DB error (may contain SQL or submitted values).
+    reportHandledError("donation_request_create", "persistence", err, "/api/requests");
     return NextResponse.json(
       { ok: false, errors: { _form: "We could not save your request. Your values were preserved — please try again." } },
       { status: 500 }

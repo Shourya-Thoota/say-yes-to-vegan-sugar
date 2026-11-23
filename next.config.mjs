@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -19,7 +21,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' accounts.google.com; frame-src accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' accounts.google.com https://*.ingest.sentry.io https://*.ingest.de; frame-src accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';",
           },
         ],
       },
@@ -35,4 +37,18 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry build wrapper. Source-map upload is disabled ("disable-upload":
+// debug IDs are still injected but nothing leaves the build), so builds never
+// require SENTRY_AUTH_TOKEN and never fail when upload credentials are absent.
+// To enable uploads later, set org/project and remove the disable flag (see README).
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: !process.env.CI,
+  sourcemaps: {
+    disable: "disable-upload",
+  },
+  // Source maps are not publicly served (Next.js serves .map files only when
+  // productionBrowserSourceMaps is true, which remains unset/false).
+  widenClientFileUpload: false,
+});

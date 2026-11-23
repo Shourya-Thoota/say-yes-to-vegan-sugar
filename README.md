@@ -93,6 +93,88 @@ Railway supplies `PORT`; do not hardcode one. No `NEXT_*` build-time secrets are
 
 Railway PostgreSQL has its own backup/restore tooling. Confirm the backup schedule and test a restore procedure with the operator — this repo does not claim backups are enabled.
 
+## Error monitoring (Sentry, optional)
+
+Unexpected production errors are reported to Sentry (SDK `@sentry/nextjs@11.16.0`).
+The integration is privacy-conscious and entirely optional: with no DSN
+configured, monitoring is silent and the app behaves identically.
+
+### What is monitored
+
+- Unhandled errors from Server Components, route handlers, server actions,
+  and middleware (via `instrumentation.ts` → `onRequestError`), plus the App
+  Router `app/global-error.tsx` boundary and browser errors.
+- Handled failures in critical operations as sanitized operation-level events
+  (fixed message, safe tags only): `donation_request_create`,
+  `support_offer_create`, `contact_inquiry_create`, `admin_request_status_update`.
+
+### What is NOT enabled or sent
+
+- Session Replay, performance tracing, profiling, user feedback, console/log
+  forwarding, and user identification are all disabled.
+- `dataCollection` (SDK v11; replaces the removed `sendDefaultPii` flag) is
+  restricted in `instrumentation-client.ts` and `sentry.server.config.ts`:
+  `userInfo`, `cookies`, `httpHeaders`, `urlQueryParams`, `graphQL`, `genAI`,
+  `mcp`, `databaseQueryData`, `queues`, `stackFrameVariables` are off;
+  `httpBodies` is `[]`; `frameContextLines` is `0`.
+- A second layer (`lib/sentry-sanitize.ts`, wired via `beforeSend` /
+  `beforeBreadcrumb`) strips request bodies, cookies, auth headers, user
+  identity, query strings, fragments, DB contexts, local frame variables, and
+  console breadcrumbs, and drops `/api/health` + `/api/ready` probe events.
+- Raw DB exceptions are never attached (they may contain SQL, connection info,
+  or submitted values). Expected failures (validation 422, auth 401, rate
+  limit 429, DB-unavailable 503) never create events.
+
+This is defense in depth, not a guarantee: review actual event payloads in
+Sentry before public launch (see verification below).
+
+### Configuration
+
+| Variable | Build-time or runtime | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SENTRY_DSN` | **build-time** (inlined into the browser bundle) | Where events are sent. Get it from Sentry → project Settings → Client Keys (DSN). The server SDK reads the same variable at runtime. Leave unset for local dev. |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | build-time | Only needed when source-map uploads are enabled (they are currently disabled). |
+| `SENTRY_AUTH_TOKEN` | never in image | Privileged upload token. Only needed for future source-map uploads; never prefix with `NEXT_PUBLIC_`, never commit, never pass via Docker ARG/ENV. |
+| `SENTRY_TEST_ENABLED` | runtime | `true` only to show the temporary admin-only synthetic test button. Unset afterward. |
+
+DSN vs token: the DSN only *receives* error events (safe to expose in the
+browser bundle); the auth token can *upload/manage* project artifacts (secret).
+
+### Setup (operator)
+
+1. Create a **Sentry Next.js** project (free tier is fine; no paid features used).
+2. Copy its DSN.
+3. On Railway, set `NEXT_PUBLIC_SENTRY_DSN` as a **build-time** variable
+   (or in the build environment), then **rebuild/redeploy** — changing the DSN
+   requires a rebuild because it is inlined into client JS.
+4. Verify: set `SENTRY_TEST_ENABLED=true`, redeploy, sign in as admin, open
+   `/admin`, send the synthetic test event, confirm it in Sentry → Issues.
+5. Open the event and confirm: no names, emails, cookies, bodies, query
+   strings, or record identifiers — only the fixed message plus
+   `operation`/`failure_category`/`route` tags.
+6. In Sentry project settings, configure server-side scrubbing rules,
+   alert routing, access, retention, and (if desired) the data region — these
+   are account-side and cannot be set from code.
+7. Unset `SENTRY_TEST_ENABLED` and redeploy to remove the test button.
+
+### Source maps (deferred)
+
+Readable production stack traces need source-map uploads, but token security
+comes first. Uploads are currently **disabled** (`sourcemaps: { disable:
+"disable-upload" }` in `next.config.mjs`), so builds never require
+`SENTRY_AUTH_TOKEN` and never fail when it is absent. Browser `.map` files are
+not publicly served (`productionBrowserSourceMaps` stays unset). Do not claim
+uploads are verified. Enabling uploads later requires `SENTRY_ORG` /
+`SENTRY_PROJECT` plus a securely-injected `SENTRY_AUTH_TOKEN`, a matching
+release identifier, and a verification that uploaded maps match the deployed
+artifacts.
+
+### Local behavior
+
+- No DSN → `Sentry.init({ enabled: false })` on both runtimes; zero delivery
+  attempts; `reportHandledError` is a no-op. Public pages, forms, auth,
+  migrations, and builds do not depend on Sentry availability.
+
 ## Database
 
 Tables: `donation_requests`, `request_notes`, `request_status_history`, `support_offers`, `contact_inquiries`, `rate_limits` (persistent), `outreach_prospects` (initially empty; no seed data).
@@ -133,3 +215,4 @@ Semantic landmarks, skip link, labeled inputs + autocomplete, field errors + err
 - [ ] Privacy/terms operator details finalized; educational claims reviewed
 - [ ] Real review/fulfillment process confirmed with the team
 - [ ] Backup arrangements confirmed; no secrets committed
+- [ ] Sentry: DSN set + rebuilt (if used); synthetic event reviewed for sensitive data; test flag unset; account-side scrubbing/alerts/retention configured; source-map uploads explicitly deferred

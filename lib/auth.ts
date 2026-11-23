@@ -40,7 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.email = (token.email as string | undefined) ?? session.user.email;
         (session.user as { isAdmin?: boolean }).isAdmin = token.isAdmin === true;
       }
-      return session.user;
+      return session;
     },
   },
   pages: {

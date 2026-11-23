@@ -128,7 +128,7 @@ export async function POST(req: Request) {
     }
     console.error("[api/requests] insert failed");
     return NextResponse.json(
-      { ok: false, errors: { _form: "We could not save your request. Your values were preserved \u2014 please try again." } },
+      { ok: false, errors: { _form: "We could not save your request. Your values were preserved — please try again." } },
       { status: 500 }
     );
   }

@@ -9,5 +9,3 @@ out
 coverage
 .playwright
 test-results
-drizzle/*.sql
-!drizzle/migrations

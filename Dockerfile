@@ -2,7 +2,8 @@
 # Build: docker build -t vegansugar .
 # Run: docker run -e DATABASE_URL=... -e AUTH_SECRET=... -p 3000:3000 vegansugar
 
-FROM node:20.18.1-bookworm-slim AS base
+# Node 20 is end-of-life (2026-04-30, no security fixes). Node 24 is Maintenance LTS until 2028-04-30.
+FROM node:24.22.3-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 

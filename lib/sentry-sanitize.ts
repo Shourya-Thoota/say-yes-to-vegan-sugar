@@ -1,73 +1,17 @@
 // Privacy sanitizers for Sentry events.
 //
-// These helpers are intentionally dependency-free (no Sentry import) so they can
-// run in beforeSend/beforeBreadcrumb hooks and be unit-tested in isolation.
+// Dependency-free (no Sentry import) so they run inside beforeSend and stay
+// unit-testable in isolation.
 //
-// Goal: never send form bodies, cookies, auth material, connection strings,
-// user-provided text, query strings, fragments, or record identifiers to Sentry.
+// Strategy is deletion, not redaction lists: request bodies, cookies, headers,
+// query strings, user identity, and extras never leave the process. What
+// remains is the fixed operation message plus a small allowlist of safe tags.
 
 export const REDACTED = "[Redacted]";
-
-// Keys whose values must never reach Sentry. Matching is case-insensitive and
-// partial (e.g. "auth" matches "Authorization").
-export const SENSITIVE_KEYS = [
-  "auth",
-  "token",
-  "secret",
-  "password",
-  "passwd",
-  "pwd",
-  "key",
-  "jwt",
-  "bearer",
-  "sso",
-  "saml",
-  "csrf",
-  "xsrf",
-  "credentials",
-  "credential",
-  "session",
-  "sid",
-  "identity",
-  "cookie",
-  "set-cookie",
-  "email",
-  "phone",
-  "name",
-  "address",
-  "street",
-  "city",
-  "zip",
-  "message",
-  "note",
-  "notes",
-  "body",
-  "delivery",
-  "temple",
-  "contact",
-  "subject",
-  "company",
-  "organization",
-  "website",
-  "forwarded",
-  "-ip",
-  "remote-",
-  "via",
-  "-user",
-  "database_url",
-  "connection",
-];
-
-function isSensitiveKey(key: string): boolean {
-  const lower = key.toLowerCase();
-  return SENSITIVE_KEYS.some((term) => lower.includes(term));
-}
 
 /** Strip query string and fragment; keep only origin + pathname. */
 export function sanitizeUrl(raw: unknown): string | undefined {
   if (typeof raw !== "string" || raw.length === 0) return undefined;
-  // Relative paths (breadcrumbs, route names) carry no query by construction,
-  // but strip defensively anyway.
   const q = raw.indexOf("?");
   const h = raw.indexOf("#");
   const cut = q === -1 ? h : h === -1 ? q : Math.min(q, h);
@@ -75,66 +19,41 @@ export function sanitizeUrl(raw: unknown): string | undefined {
   return stripped.length > 0 ? stripped : undefined;
 }
 
-/** Redact sensitive keys in a flat record; drop non-string-safe values. */
-export function sanitizeHeaders(
-  input: Record<string, string | undefined> | undefined
-): Record<string, string> | undefined {
-  if (!input) return undefined;
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(input)) {
-    if (v === undefined) continue;
-    out[k] = isSensitiveKey(k) ? REDACTED : v;
-  }
-  return out;
-}
-
 type MutableEvent = {
   request?: {
     url?: string;
+    method?: string;
     query_string?: unknown;
     fragment?: unknown;
     cookies?: unknown;
     data?: unknown;
-    headers?: Record<string, string | undefined>;
+    headers?: unknown;
   };
   user?: unknown;
   contexts?: Record<string, unknown>;
-  breadcrumbs?: Array<{
-    message?: string;
-    data?: unknown;
-    category?: string;
-  }>;
   tags?: Record<string, string>;
-  extra?: Record<string, unknown>;
+  extra?: unknown;
   exception?: {
-    values?: Array<{ value?: string; stacktrace?: { frames?: Array<{ vars?: unknown; context_line?: unknown; pre_context?: unknown; post_context?: unknown }> } }>;
+    values?: Array<{
+      value?: string;
+      stacktrace?: {
+        frames?: Array<{ vars?: unknown; context_line?: unknown; pre_context?: unknown; post_context?: unknown }>;
+      };
+    }>;
   };
-  message?: string;
+  breadcrumbs?: unknown;
 };
 
-function sanitizeExceptionValues(event: MutableEvent): void {
-  const values = event.exception?.values;
-  if (!values) return;
-  for (const v of values) {
-    if (typeof v.value === "string" && looksLikeUserText(v.value)) {
-      v.value = REDACTED;
-    }
-    const frames = v.stacktrace?.frames;
-    if (frames) {
-      for (const f of frames) {
-        // Local variables may hold form values or row contents.
-        if (f.vars !== undefined) f.vars = REDACTED;
-        if (f.context_line !== undefined) f.context_line = REDACTED;
-        if (f.pre_context !== undefined) f.pre_context = REDACTED;
-        if (f.post_context !== undefined) f.post_context = REDACTED;
-      }
-    }
-  }
-}
+// Tags set by reportHandledError. Anything else (SDK defaults included) is
+// dropped so unexpected values can never carry PII.
+const SAFE_TAGS = new Set(["operation", "route"]);
 
-// Heuristic: handled-operation events use short fixed messages. Anything long
-// or containing an "@" (email) or digits-heavy contact text is treated as
-// potentially user-supplied and redacted.
+// Contexts that may embed request bodies or DB rows.
+const RISKY_CONTEXTS = ["request", "response", "db", "database", "trace", "state", "form"];
+
+// Heuristic for automatic captures: handled-operation events use short fixed
+// messages, so anything long or containing "@" is treated as potentially
+// user-supplied and redacted.
 function looksLikeUserText(value: string): boolean {
   if (value.length > 300) return true;
   if (value.includes("@")) return true;
@@ -150,127 +69,58 @@ export function sanitizeSentryEvent<T>(event: T): T {
     const e = event as unknown as MutableEvent;
     if (!e || typeof e !== "object") return event;
 
-    // Request: keep method + sanitized URL only. Drop body, cookies, query.
+    // Request: keep method + sanitized URL only.
     if (e.request) {
       const sanitized = sanitizeUrl(e.request.url);
-      if (sanitized !== undefined) e.request.url = sanitized;
-      else delete e.request.url;
-      delete e.request.query_string;
-      delete e.request.fragment;
-      delete e.request.cookies;
-      delete e.request.data;
-      if (e.request.headers) {
-        const headers = sanitizeHeaders(e.request.headers);
-        if (headers) e.request.headers = headers;
-        else delete e.request.headers;
-      }
+      const method = e.request.method;
+      e.request = method ? { url: sanitized, method } : { url: sanitized };
+      if (e.request.url === undefined) delete e.request.url;
     }
 
-    // Never send inferred user identity (email, username, ip inferred by SDK).
+    // Never send inferred user identity.
     delete e.user;
 
-    // Drop contexts that commonly embed request bodies or DB rows.
+    // Breadcrumbs are disabled via maxBreadcrumbs: 0, but drop defensively.
+    delete e.breadcrumbs;
+
+    // We never use `extra`; drop it wholesale rather than scrubbing keys.
+    delete e.extra;
+
     if (e.contexts) {
       for (const key of Object.keys(e.contexts)) {
-        const lower = key.toLowerCase();
-        if (
-          lower.includes("request") ||
-          lower.includes("response") ||
-          lower.includes("db") ||
-          lower.includes("database") ||
-          lower.includes("trace") ||
-          lower.includes("state") ||
-          lower.includes("form")
-        ) {
+        if (RISKY_CONTEXTS.some((r) => key.toLowerCase().includes(r))) {
           delete e.contexts[key];
         }
       }
     }
 
-    // Scrub tags/extra of sensitive keys and user text.
     if (e.tags) {
-      for (const [k, v] of Object.entries(e.tags)) {
-        if (isSensitiveKey(k) || (typeof v === "string" && looksLikeUserText(v))) {
-          e.tags[k] = REDACTED;
-        }
-      }
-    }
-    if (e.extra) {
-      for (const [k, v] of Object.entries(e.extra)) {
-        if (isSensitiveKey(k) || (typeof v === "string" && looksLikeUserText(v))) {
-          e.extra[k] = REDACTED;
-        }
+      for (const key of Object.keys(e.tags)) {
+        if (!SAFE_TAGS.has(key)) delete e.tags[key];
       }
     }
 
-    sanitizeExceptionValues(e);
-
-    if (Array.isArray(e.breadcrumbs)) {
-      e.breadcrumbs = e.breadcrumbs
-        .map(sanitizeBreadcrumb)
-        .filter((b) => b !== null) as MutableEvent["breadcrumbs"];
+    const values = e.exception?.values;
+    if (values) {
+      for (const v of values) {
+        if (typeof v.value === "string" && looksLikeUserText(v.value)) {
+          v.value = REDACTED;
+        }
+        const frames = v.stacktrace?.frames;
+        if (frames) {
+          for (const f of frames) {
+            // Defensive: stackFrameVariables/context lines are already off in
+            // init, so these are normally absent.
+            if (f.vars !== undefined) f.vars = REDACTED;
+            if (f.context_line !== undefined) f.context_line = REDACTED;
+            if (f.pre_context !== undefined) f.pre_context = REDACTED;
+            if (f.post_context !== undefined) f.post_context = REDACTED;
+          }
+        }
+      }
     }
   } catch {
     // Sanitization must never break event delivery.
   }
   return event;
-}
-
-type MutableBreadcrumb = {
-  message?: string;
-  data?: unknown;
-  category?: string;
-  type?: string;
-  level?: string;
-};
-
-/**
- * Sanitize a single breadcrumb. Returns null when the breadcrumb should be
- * dropped entirely (console/log breadcrumbs often embed user text).
- */
-export function sanitizeBreadcrumb<T>(crumb: T): T | null {
-  try {
-    const b = crumb as unknown as MutableBreadcrumb;
-    if (!b || typeof b !== "object") return crumb;
-    // Console/log breadcrumbs capture raw log arguments (may include PII).
-    if (b.category === "console" || b.type === "log") return null;
-    // HTTP breadcrumbs may carry query strings or bodies in data/url.
-    if (typeof b.message === "string") {
-      if (looksLikeUserText(b.message)) return null;
-      const cleaned = sanitizeUrl(b.message);
-      b.message = cleaned ?? REDACTED;
-    }
-    if (b.data !== undefined) {
-      if (typeof b.data === "string") {
-        const cleaned = sanitizeUrl(b.data);
-        b.data = cleaned ?? REDACTED;
-      } else if (b.data && typeof b.data === "object") {
-        const rec = b.data as Record<string, unknown>;
-        const out: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(rec)) {
-          if (isSensitiveKey(k)) {
-            out[k] = REDACTED;
-            continue;
-          }
-          if (typeof v === "string") {
-            if (looksLikeUserText(v)) out[k] = REDACTED;
-            else out[k] = sanitizeUrl(v) ?? v;
-          } else {
-            out[k] = REDACTED;
-          }
-        }
-        b.data = out;
-      } else {
-        b.data = REDACTED;
-      }
-    }
-    return crumb;
-  } catch {
-    return null;
-  }
-}
-
-/** Sensitive substrings that must never appear in an event payload. */
-export function findLeakedSensitiveText(serialized: string, samples: string[]): string[] {
-  return samples.filter((s) => s.length >= 4 && serialized.includes(s));
 }

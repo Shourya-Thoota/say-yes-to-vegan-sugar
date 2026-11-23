@@ -128,9 +128,8 @@ export async function POST(req: Request) {
       } catch { /* fall through */ }
     }
     console.error("[api/requests] insert failed");
-    // Sanitized operation-level event: fixed message + safe tags only.
-    // Never forwards the DB error (may contain SQL or submitted values).
-    reportHandledError("donation_request_create", "persistence", err, "/api/requests");
+    // Fixed message + safe tags only; the DB error is never forwarded.
+    reportHandledError("donation_request_create", "/api/requests");
     return NextResponse.json(
       { ok: false, errors: { _form: "We could not save your request. Your values were preserved — please try again." } },
       { status: 500 }

@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       } catch { /* fall through */ }
     }
     console.error("[api/contact] insert failed");
-    reportHandledError("contact_inquiry_create", "persistence", err, "/api/contact");
+    reportHandledError("contact_inquiry_create", "/api/contact");
     return NextResponse.json({ ok: false, errors: { _form: "We could not save your message. Please try again." } }, { status: 500 });
   }
 }

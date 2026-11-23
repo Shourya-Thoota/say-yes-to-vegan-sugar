@@ -1,11 +1,10 @@
 /**
  * Sentry integration tests (synthetic data only).
  *
- * Covers: disabled-without-DSN, PII/sensitive stripping, cookie + auth
- * header removal, query/fragment stripping, breadcrumb sanitization,
- * user-text exclusion, raw DB errors never forwarded by handled-error
- * helpers, safe metadata retained, and monitoring failures never changing
- * app behavior.
+ * Covers: disabled-without-DSN, request/user/extra stripping, query
+ * stripping, unknown-tag dropping, user-text exclusion, raw DB errors never
+ * forwarded by handled-error helpers, safe metadata retained, and monitoring
+ * failures never changing app behavior.
  *
  * These tests verify payload SHAPING only. They do not prove production
  * event delivery — that requires a configured DSN and dashboard check.
@@ -20,23 +19,8 @@ const sentryMock = vi.hoisted(() => ({
 
 vi.mock("@sentry/nextjs", () => sentryMock);
 
-import {
-  isSentryEnabled,
-  reportHandledError,
-  sentryBeforeBreadcrumb,
-  sentryBeforeSend,
-  wasManuallyReported,
-} from "../lib/sentry";
-import {
-  findLeakedSensitiveText,
-  sanitizeBreadcrumb,
-  sanitizeSentryEvent,
-  sanitizeUrl,
-} from "../lib/sentry-sanitize";
-
-const DB_ERROR_TEXT =
-  "duplicate key value violates unique constraint (templeName)=(Sri Temple) " +
-  "connection postgresql://admin:s3cret@db.internal:5432/vegansugar contact jane@example.org";
+import { getSharedSentryOptions, isSentryEnabled, reportHandledError, sentryBeforeSend } from "../lib/sentry";
+import { sanitizeSentryEvent, sanitizeUrl } from "../lib/sentry-sanitize";
 
 function enableMonitoring() {
   vi.stubEnv("NEXT_PUBLIC_SENTRY_DSN", "https://key@o123.ingest.sentry.io/456");
@@ -45,7 +29,6 @@ function enableMonitoring() {
 
 function disableMonitoring() {
   vi.stubEnv("NEXT_PUBLIC_SENTRY_DSN", "");
-  vi.stubEnv("SENTRY_DSN", "");
   vi.stubEnv("NODE_ENV", "test");
 }
 
@@ -85,7 +68,7 @@ describe("monitoring disabled without a DSN", () => {
   });
 
   it("reportHandledError is a no-op without a DSN", () => {
-    reportHandledError("donation_request_create", "persistence", new Error(DB_ERROR_TEXT));
+    reportHandledError("donation_request_create", "/api/requests");
     expect(sentryMock.captureException).not.toHaveBeenCalled();
   });
 
@@ -96,155 +79,97 @@ describe("monitoring disabled without a DSN", () => {
   });
 });
 
+describe("shared init options", () => {
+  it("disables breadcrumbs and risky collection", () => {
+    const opts = getSharedSentryOptions();
+    expect(opts.maxBreadcrumbs).toBe(0);
+    expect(opts.dataCollection.userInfo).toBe(false);
+    expect(opts.dataCollection.cookies).toBe(false);
+    expect(opts.dataCollection.httpHeaders).toBe(false);
+    expect(opts.dataCollection.urlQueryParams).toBe(false);
+  });
+});
+
 describe("URL sanitization", () => {
   it("strips query strings and fragments", () => {
-    expect(sanitizeUrl("https://example.org/api/x?email=a@b.org#frag")).toBe(
-      "https://example.org/api/x"
-    );
+    expect(sanitizeUrl("https://example.org/api/x?email=a@b.org#frag")).toBe("https://example.org/api/x");
     expect(sanitizeUrl("/admin/requests/abc?tab=1")).toBe("/admin/requests/abc");
     expect(sanitizeUrl("/api/health")).toBe("/api/health");
   });
 });
 
 describe("event sanitization", () => {
-  it("removes request body, cookies, query, user identity; redacts auth headers", () => {
+  it("keeps method + clean URL; drops body, cookies, headers, user, extra, unknown tags", () => {
     const event = {
       request: {
         url: "https://example.org/api/requests?email=jane@example.org",
         method: "POST",
         query_string: "email=jane@example.org",
         fragment: "x",
-        cookies: "session=abc; theme=light",
-        data: { contactName: "Jane Doe", contactEmail: "jane@example.org" },
-        headers: {
-          Authorization: "Bearer secret-token",
-          "Content-Type": "application/json",
-          Cookie: "session=abc",
-        },
+        cookies: "session=abc",
+        data: { contactEmail: "jane@example.org" },
+        headers: { Authorization: "Bearer secret", "Content-Type": "application/json" },
       },
-      user: { email: "jane@example.org", id: "123", ip_address: "1.2.3.4" },
+      user: { email: "jane@example.org", id: "123" },
       contexts: { db: { statement: "INSERT ..." }, runtime: { name: "node" } },
-      tags: { contactEmail: "jane@example.org", operation: "donation_request_create" },
-      extra: { deliveryInstructions: "Leave at gate", attempt: 1 },
-      message: "short fixed message",
+      tags: { operation: "donation_request_create", contactEmail: "jane@example.org" },
+      extra: { deliveryInstructions: "Leave at gate" },
+      breadcrumbs: [{ message: "console log with jane@example.org" }],
     };
     sanitizeSentryEvent(event);
     expect(event.request.url).toBe("https://example.org/api/requests");
+    expect(event.request.method).toBe("POST");
     expect(event.request).not.toHaveProperty("query_string");
     expect(event.request).not.toHaveProperty("cookies");
     expect(event.request).not.toHaveProperty("data");
-    expect(event.request.headers?.Authorization).toBe("[Redacted]");
-    expect(event.request.headers?.Cookie).toBe("[Redacted]");
-    expect(event.request.headers?.["Content-Type"]).toBe("application/json");
+    expect(event.request).not.toHaveProperty("headers");
     expect(event).not.toHaveProperty("user");
+    expect(event).not.toHaveProperty("extra");
+    expect(event).not.toHaveProperty("breadcrumbs");
     expect(event.contexts).not.toHaveProperty("db");
-    expect(event.tags?.contactEmail).toBe("[Redacted]");
+    expect(event.contexts).toHaveProperty("runtime");
     expect(event.tags?.operation).toBe("donation_request_create");
-    expect(event.extra?.deliveryInstructions).toBe("[Redacted]");
+    expect(event.tags).not.toHaveProperty("contactEmail");
   });
 
   it("redacts exception values that look like user text and strips frame vars", () => {
-    const longUserText = "a".repeat(400);
     const event = {
       exception: {
         values: [
-          {
-            value: longUserText,
-            stacktrace: { frames: [{ vars: { pwd: "x" }, context_line: "secret" }] },
-          },
+          { value: "a".repeat(400), stacktrace: { frames: [{ vars: { pwd: "x" } }] } },
+          { value: "short fixed message" },
         ],
       },
     };
     sanitizeSentryEvent(event);
-    expect(event.exception.values[0].value).toBe("[Redacted]");
-    expect(event.exception.values[0].stacktrace.frames[0].vars).toBe("[Redacted]");
-  });
-});
-
-describe("breadcrumb sanitization", () => {
-  it("drops console/log breadcrumbs and redacts http data", () => {
-    expect(sanitizeBreadcrumb({ category: "console", message: "hello" })).toBeNull();
-    const crumb = sanitizeBreadcrumb({
-      category: "http",
-      message: "https://example.org/api/x?token=abc",
-      data: { url: "https://example.org/api/x?token=abc", email: "a@b.org", status_code: 200 },
-    }) as { message: string; data: Record<string, unknown> };
-    expect(crumb.message).toBe("https://example.org/api/x");
-    expect(crumb.data.email).toBe("[Redacted]");
+    const values = event.exception.values;
+    expect(values[0]?.value).toBe("[Redacted]");
+    expect(values[0]?.stacktrace?.frames?.[0]?.vars).toBe("[Redacted]");
+    expect(values[1]?.value).toBe("short fixed message");
   });
 });
 
 describe("handled-error helper privacy", () => {
-  it("forwards only a fixed message plus safe metadata, never raw DB text", () => {
+  it("forwards only a fixed message plus safe tags", () => {
     enableMonitoring();
     const scope = fakeScope();
     sentryMock.withScope.mockImplementationOnce((fn: (s: unknown) => void) => fn(scope));
 
-    const raw = new Error(DB_ERROR_TEXT);
-    reportHandledError("donation_request_create", "persistence", raw, "/api/requests");
+    reportHandledError("donation_request_create", "/api/requests");
 
     expect(sentryMock.captureException).toHaveBeenCalledTimes(1);
     const captured = sentryMock.captureException.mock.calls[0][0] as Error;
-    const serialized = JSON.stringify({
-      message: captured.message,
-      tags: scope.calls.tags,
-      fingerprint: scope.calls.fingerprint,
-    });
-    // Fixed message only.
-    expect(captured.message).toBe("sentry:donation_request_create:persistence");
-    // None of the DB error contents leak.
-    expect(
-      findLeakedSensitiveText(serialized, [
-        "Sri Temple",
-        "s3cret",
-        "db.internal",
-        "jane@example.org",
-        "duplicate key",
-      ])
-    ).toEqual([]);
-    // Safe metadata retained.
+    expect(captured.message).toBe("sentry:donation_request_create");
+    expect(captured.name).toBe("HandledOperationError");
     expect(scope.calls.tags.operation).toBe("donation_request_create");
-    expect(scope.calls.tags.failure_category).toBe("persistence");
     expect(scope.calls.tags.route).toBe("/api/requests");
+    expect(scope.calls.fingerprint).toEqual(["donation_request_create"]);
   });
 
-  it("does not interpolate user input into messages", () => {
-    enableMonitoring();
-    reportHandledError("contact_inquiry_create", "persistence", new Error("user typed ouch"), "/api/contact");
-    const captured = sentryMock.captureException.mock.calls[0][0] as Error;
-    expect(captured.message).not.toContain("ouch");
-  });
-
-  it("marks the original error so automatic hooks drop the duplicate", () => {
-    enableMonitoring();
-    const raw = new Error(DB_ERROR_TEXT);
-    reportHandledError("support_offer_create", "persistence", raw, "/api/support");
-    expect(wasManuallyReported({ originalException: raw })).toBe(true);
-    expect(
-      sentryBeforeSend({ request: { url: "https://x/api/support" } }, { originalException: raw })
-    ).toBeNull();
-  });
-});
-
-describe("beforeSend noise filtering", () => {
-  it("drops health and readiness probe events", () => {
-    expect(
-      sentryBeforeSend({ request: { url: "https://x/api/health" } }, {})
-    ).toBeNull();
-    expect(sentryBeforeSend({ request: { url: "https://x/api/ready" } }, {})).toBeNull();
-  });
-
-  it("keeps genuine events (sanitized)", () => {
-    const out = sentryBeforeSend(
-      { request: { url: "https://x/api/requests?email=a@b.org", cookies: "s=1" } },
-      {}
-    );
-    expect(out).not.toBeNull();
+  it("beforeSend keeps genuine events, sanitized", () => {
+    const out = sentryBeforeSend({ request: { url: "https://x/api/requests?email=a@b.org", method: "POST" } });
     expect(out.request.url).toBe("https://x/api/requests");
-  });
-
-  it("beforeBreadcrumb drops console noise", () => {
-    expect(sentryBeforeBreadcrumb({ category: "console", message: "x" })).toBeNull();
+    expect(out.request).not.toHaveProperty("headers");
   });
 });
 
@@ -254,8 +179,6 @@ describe("monitoring failures never change app behavior", () => {
     sentryMock.captureException.mockImplementationOnce(() => {
       throw new Error("transport down");
     });
-    expect(() =>
-      reportHandledError("donation_request_create", "persistence", new Error("db down"))
-    ).not.toThrow();
+    expect(() => reportHandledError("donation_request_create", "/api/requests")).not.toThrow();
   });
 });

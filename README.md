@@ -76,8 +76,9 @@ Railway is the production host. Do **not** deploy via Vercel.
 | `AUTH_SECRET` | yes | `openssl rand -base64 32`. Admin sessions fail closed without it. |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | yes | Google Cloud OAuth client. Authorized redirect URI: `https://<your-domain>/api/auth/callback/google` |
 | `ADMIN_EMAILS` | yes | Comma-separated allowlist, e.g. `admin@example.org,second@example.org` |
-| `NEXT_PUBLIC_SITE_URL` | yes | Canonical URL, no trailing slash, e.g. `https://say-yes.example.org`. Set after the public domain is known; redeploy after changing it (sitemap, OG, callbacks). |
+| `NEXT_PUBLIC_SITE_URL` | yes (**build-time**: changing it requires a **rebuild**) | Canonical URL, no trailing slash, e.g. `https://say-yes.example.org`. Set after the public domain is known; rebuild after changing it (sitemap, OG, callbacks). The Dockerfile accepts it as a build arg (defaults to `http://localhost:3000`). |
 | `AUTH_TRUST_HOST` | default `true` | Leave `true` on Railway so Auth.js honors the proxied host. |
+| `NEXT_PUBLIC_SENTRY_DSN` | no (**build-time**; see error-monitoring section) | Sentry DSN for browser + server error events. Set as a build-time variable, then rebuild. |
 
 Railway supplies `PORT`; do not hardcode one. No `NEXT_*` build-time secrets are needed: public pages build without `DATABASE_URL`.
 
@@ -112,15 +113,13 @@ configured, monitoring is silent and the app behaves identically.
 
 - Session Replay, performance tracing, profiling, user feedback, console/log
   forwarding, and user identification are all disabled.
-- `dataCollection` (SDK v11; replaces the removed `sendDefaultPii` flag) is
-  restricted in `instrumentation-client.ts` and `sentry.server.config.ts`:
-  `userInfo`, `cookies`, `httpHeaders`, `urlQueryParams`, `graphQL`, `genAI`,
-  `mcp`, `databaseQueryData`, `queues`, `stackFrameVariables` are off;
-  `httpBodies` is `[]`; `frameContextLines` is `0`.
-- A second layer (`lib/sentry-sanitize.ts`, wired via `beforeSend` /
-  `beforeBreadcrumb`) strips request bodies, cookies, auth headers, user
-  identity, query strings, fragments, DB contexts, local frame variables, and
-  console breadcrumbs, and drops `/api/health` + `/api/ready` probe events.
+- Collection is restricted via shared options in `lib/sentry.ts`
+  (`maxBreadcrumbs: 0` plus `dataCollection` with `userInfo`, `cookies`,
+  `httpHeaders`, `urlQueryParams`, and friends off).
+- A second layer (`lib/sentry-sanitize.ts`, wired via `beforeSend`) deletes
+  request bodies/cookies/headers, user identity, query strings, extras, and
+  unknown tags, keeping only the method, clean URL, and `operation`/`route`
+  tags.
 - Raw DB exceptions are never attached (they may contain SQL, connection info,
   or submitted values). Expected failures (validation 422, auth 401, rate
   limit 429, DB-unavailable 503) never create events.
@@ -151,7 +150,7 @@ browser bundle); the auth token can *upload/manage* project artifacts (secret).
    `/admin`, send the synthetic test event, confirm it in Sentry → Issues.
 5. Open the event and confirm: no names, emails, cookies, bodies, query
    strings, or record identifiers — only the fixed message plus
-   `operation`/`failure_category`/`route` tags.
+   `operation`/`route` tags.
 6. In Sentry project settings, configure server-side scrubbing rules,
    alert routing, access, retention, and (if desired) the data region — these
    are account-side and cannot be set from code.

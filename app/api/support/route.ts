@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       } catch { /* fall through */ }
     }
     console.error("[api/support] insert failed");
-    reportHandledError("support_offer_create", "persistence", err, "/api/support");
+    reportHandledError("support_offer_create", "/api/support");
     return NextResponse.json({ ok: false, errors: { _form: "We could not save your message. Please try again." } }, { status: 500 });
   }
 }

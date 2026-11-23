@@ -37,11 +37,11 @@ export async function updateRequestStatus(requestId: string, formData: FormData)
         changedBy: admin.email,
       });
     });
-  } catch (err) {
-    // Sanitized operation-level event (fixed message, safe tags). The original
-    // error is marked so automatic hooks drop their duplicate capture.
-    reportHandledError("admin_request_status_update", "persistence", err);
-    throw err;
+  } catch {
+    // Fixed message + safe tags only; the DB error is never forwarded. Throw
+    // a new generic error so automatic capture can only ever see safe text.
+    reportHandledError("admin_request_status_update");
+    throw new Error("Status update failed.");
   }
   revalidatePath("/admin");
   revalidatePath(`/admin/requests/${requestId}`);

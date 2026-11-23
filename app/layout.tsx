@@ -6,17 +6,19 @@ import { SiteFooter } from "@/components/site-footer";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: {
-    default: "Say Yes to Vegan Sugar — A thoughtful choice for every offering",
-    template: "%s · Say Yes to Vegan Sugar",
+    default: "Temple Initiative | Say Yes to Vegan Sugar",
+    template: "%s · Temple Initiative",
   },
   description:
-    "An independent community initiative helping Hindu temples in the United States make informed sugar choices and request donated vegan sugar.",
+    "Temple Initiative’s Say Yes to Vegan Sugar campaign helps temple communities check sugar-processing information, make informed choices, and share awareness.",
   openGraph: {
-    title: "Say Yes to Vegan Sugar",
-    description: "A thoughtful choice for every offering.",
+    title: "Temple Initiative | Say Yes to Vegan Sugar",
+    description:
+      "A public-service message: check how sugar is processed, make an informed choice, and share the message.",
     type: "website",
-    images: [{ url: "/og.svg", width: 1200, height: 630, alt: "Say Yes to Vegan Sugar" }],
+    images: [{ url: "/og.svg", width: 1200, height: 630, alt: "Temple Initiative — Say Yes to Vegan Sugar" }],
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

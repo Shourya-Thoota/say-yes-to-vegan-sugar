@@ -1,0 +1,10 @@
+{
+  "name": "Temple Initiative",
+  "short_name": "Temple Initiative",
+  "description": "Temple Initiative’s Say Yes to Vegan Sugar campaign helps temple communities check sugar-processing information and share awareness.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F0E8",
+  "theme_color": "#F5F0E8",
+  "icons": []
+}

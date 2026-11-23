@@ -1,6 +1,6 @@
 import { Eyebrow } from "@/components/ui";
 
-export const metadata = { title: "Privacy Policy", description: "How Say Yes to Vegan Sugar handles information you share." };
+export const metadata = { title: "Privacy Policy", description: "How Temple Initiative handles information you share, including optional YouTube playback." };
 
 export default function PrivacyPage() {
   return (
@@ -19,6 +19,8 @@ export default function PrivacyPage() {
           <p className="mt-2">We share information only as needed to operate the service: hosting and database providers that store the data, authentication providers that verify administrator sign-in, an error-monitoring provider that receives diagnostic information about unexpected errors (see “Error monitoring” below), and — only for confirmed delivery coordination — the delivery parties a temple approves. We do not publish personal data or expose a public request-lookup page.</p></section>
         <section><h2 className="font-heading text-xl font-bold">Error monitoring</h2>
           <p className="mt-2">We use Sentry for operational error monitoring so we can identify broken donation submissions, website errors, and administration failures. When an unexpected error occurs, diagnostic information (such as the page or operation involved and technical error details) is sent to Sentry. The integration is configured to minimize personal information: session replay and user identification are not enabled, and form contents, cookies, authentication material, and database contents are stripped before transmission. Some technical details may still be transmitted as part of an error report; review the README&apos;s error-monitoring section for the current safeguards. Account-side settings (such as data retention) are controlled in the Sentry dashboard by the operator.</p></section>
+        <section><h2 className="font-heading text-xl font-bold">Optional video playback</h2>
+          <p className="mt-2">The homepage can show an educational YouTube video about sugar processing. The player does not load until you choose Play: before that, no YouTube iframe, thumbnail request, or preconnection is made. Choosing Play loads the video from YouTube’s privacy-enhanced domain (youtube-nocookie.com) and YouTube may receive information about your visit, such as your IP address and the page you visited. Playback is not claimed to be anonymous or tracking-free. You can also use the Watch on YouTube link instead. We do not use social-tracking widgets.</p></section>
         <section><h2 className="font-heading text-xl font-bold">Your choices</h2>
           <p className="mt-2">To access, correct, or request deletion of information you submitted, contact us through the contact form and include your submission reference number if you have one. We will respond to reasonable requests consistent with record-keeping needs for pending or fulfilled requests.</p></section>
         <section><h2 className="font-heading text-xl font-bold">Security and retention</h2>

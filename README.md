@@ -1,6 +1,6 @@
-# Say Yes to Vegan Sugar
+# Temple Initiative — Say Yes to Vegan Sugar
 
-A community initiative helping Hindu temples in the United States make informed decisions about sugar and request donated vegan sugar for prasadam, religious offerings, festivals, and community meals.
+Temple Initiative is a public-awareness website. Its current campaign, Say Yes to Vegan Sugar, helps temple communities check sugar-processing information, make informed choices, and share awareness. Donation requests are secondary and reviewed individually.
 
 This is **not** an online store. No checkout, payments, fundraising targets, or tax-deduction claims.
 

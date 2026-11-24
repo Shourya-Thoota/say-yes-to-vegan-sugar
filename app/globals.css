@@ -101,8 +101,17 @@ svg {
     display: none !important;
   }
 
+  html,
+  body {
+    overflow: visible;
+  }
+
   body {
     background: #fff;
+  }
+
+  body.min-h-screen {
+    min-height: auto;
   }
 
   main {
@@ -118,6 +127,16 @@ svg {
     border: none;
     border-radius: 0;
     padding: 0;
+  }
+
+  .poster-sheet .poster-record,
+  .poster-sheet .poster-guide {
+    break-inside: avoid;
+  }
+
+  .poster-sheet .poster-qr svg {
+    width: 104px !important;
+    height: 104px !important;
   }
 
   a {

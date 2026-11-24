@@ -263,7 +263,7 @@ pgDescribe("public temple directory (real PostgreSQL, synthetic data)", () => {
       return rows[0].publicRef;
     }
 
-    // Public submissions must reject javascript: URLs at validation (400).
+    // Public submissions must reject javascript: URLs at validation (422).
     const hostileRes = await requestsPost(
       post(
         validDonation(synthKey("ca-hostile"), {
@@ -276,7 +276,7 @@ pgDescribe("public temple directory (real PostgreSQL, synthetic data)", () => {
         freshIp()
       )
     );
-    expect(hostileRes.status).toBe(400);
+    expect(hostileRes.status).toBe(422);
 
     const txKey = synthKey("tx");
     const refTX = await publishTemple(txKey, {

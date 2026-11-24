@@ -24,6 +24,17 @@ export const REQUEST_STATUSES = [
 
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
+export const PUBLIC_LISTING_STATUSES = [
+  "private",
+  "pending_review",
+  "published",
+  "unpublished",
+] as const;
+
+export type PublicListingStatus = (typeof PUBLIC_LISTING_STATUSES)[number];
+
+export const PUBLIC_LISTING_SUMMARY_MAX_LENGTH = 240;
+
 export const donationRequests = pgTable(
   "donation_requests",
   {
@@ -64,6 +75,14 @@ export const donationRequests = pgTable(
       .default("v1"),
     // Workflow
     status: varchar("status", { length: 24 }).notNull().default("submitted"),
+    // Optional public temple-directory listing (Part 3A). All existing rows
+    // stay strictly private via safe defaults.
+    publicListingConsent: boolean("public_listing_consent").notNull().default(false),
+    publicListingConsentAt: timestamp("public_listing_consent_at", { withTimezone: true }),
+    publicListingStatus: varchar("public_listing_status", { length: 24 }).notNull().default("private"),
+    publicListingSummary: text("public_listing_summary"),
+    publicListingReviewedBy: text("public_listing_reviewed_by"),
+    publicListingReviewedAt: timestamp("public_listing_reviewed_at", { withTimezone: true }),
     deliveryNotes: text("delivery_notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -72,6 +91,7 @@ export const donationRequests = pgTable(
     index("donation_requests_status_idx").on(t.status),
     index("donation_requests_created_idx").on(t.createdAt),
     index("donation_requests_state_idx").on(t.state),
+    index("donation_requests_public_listing_status_idx").on(t.publicListingStatus),
     uniqueIndex("donation_requests_public_ref_uidx").on(t.publicRef),
   ]
 );

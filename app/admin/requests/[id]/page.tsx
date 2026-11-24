@@ -4,8 +4,9 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { donationRequests, requestNotes, statusHistory } from "@/lib/schema";
-import { addRequestNote, updateRequestStatus } from "@/lib/admin-actions";
+import { addRequestNote, updatePublicListing, updateRequestStatus } from "@/lib/admin-actions";
 import { STATUS_LABELS } from "@/lib/csv";
+import { PUBLIC_LISTING_SUMMARY_MAX_LENGTH } from "@/lib/schema";
 
 export const metadata = { title: "Request Detail", robots: { index: false, follow: false } };
 
@@ -55,6 +56,47 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </dl>
         </section>
       </div>
+
+      <section className="mt-5 rounded-2xl border border-[#E5DCCB] bg-white p-5" aria-labelledby="listing-heading">
+        <h2 id="listing-heading" className="font-heading text-xl font-bold">Public directory listing</h2>
+        <dl className="mt-3 space-y-2 text-[15px]">
+          <div><dt className="font-semibold">Opt-in consent</dt><dd>{r.publicListingConsent ? `Yes${r.publicListingConsentAt ? ` · ${new Date(r.publicListingConsentAt).toLocaleString()}` : ""}` : "No — this request can never be published."}</dd></div>
+          <div><dt className="font-semibold">Listing status</dt><dd>{r.publicListingStatus}</dd></div>
+          {(r.publicListingReviewedBy || r.publicListingReviewedAt) && (
+            <div><dt className="font-semibold">Last reviewed</dt><dd>{r.publicListingReviewedBy ?? "—"}{r.publicListingReviewedAt ? ` · ${new Date(r.publicListingReviewedAt).toLocaleString()}` : ""}</dd></div>
+          )}
+          {r.publicListingSummary && <div><dt className="font-semibold">Current public note</dt><dd className="whitespace-pre-line">{r.publicListingSummary}</dd></div>}
+        </dl>
+        {r.publicListingConsent ? (
+          <form action={updatePublicListing.bind(null, r.id)} className="mt-4 space-y-3">
+            <div>
+              <label htmlFor="listing-summary" className="block text-sm font-semibold">Public note (optional, plain text, max {PUBLIC_LISTING_SUMMARY_MAX_LENGTH} characters)</label>
+              <input
+                id="listing-summary"
+                name="summary"
+                defaultValue={r.publicListingSummary ?? ""}
+                maxLength={PUBLIC_LISTING_SUMMARY_MAX_LENGTH}
+                placeholder="e.g. Requested vegan sugar for temple kitchen"
+                className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5"
+              />
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button type="submit" name="action" value="publish" className="rounded-full bg-terracotta-deeper px-6 py-2.5 font-semibold text-white hover:bg-[#7E3B1E]">
+                Approve &amp; publish
+              </button>
+              <button type="submit" name="action" value="unpublish" className="rounded-full border border-charcoal px-6 py-2.5 font-semibold hover:bg-cream">
+                Unpublish
+              </button>
+            </div>
+            <p className="text-sm text-[#6B5E4F]">Publishing lists only the temple name, city, state, website, and this note. Unpublishing removes the temple from the public directory immediately.</p>
+          </form>
+        ) : (
+          <p className="mt-4 rounded-xl bg-cream p-4 text-[15px] text-[#4A4238]">
+            This request did not opt in to public listing, so it cannot be published. Only the
+            temple may opt in via the request form.
+          </p>
+        )}
+      </section>
 
       <section className="mt-5 rounded-2xl border border-[#E5DCCB] bg-white p-5">
         <h2 className="font-heading text-xl font-bold">Update status</h2>

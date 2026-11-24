@@ -137,7 +137,7 @@ export default async function AdminPage({
           </form>
 
           <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E5DCCB] bg-white">
-            <table className="w-full min-w-[760px] text-left text-[15px]">
+            <table className="w-full min-w-[880px] text-left text-[15px]">
               <thead>
                 <tr className="border-b border-[#E5DCCB] text-sm text-[#6B5E4F]">
                   <th className="px-4 py-3">Reference</th>
@@ -145,6 +145,7 @@ export default async function AdminPage({
                   <th className="px-4 py-3">Location</th>
                   <th className="px-4 py-3">Qty</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Directory</th>
                   <th className="px-4 py-3">Submitted</th>
                 </tr>
               </thead>
@@ -156,11 +157,12 @@ export default async function AdminPage({
                     <td className="px-4 py-3">{r.city}, {r.state}</td>
                     <td className="px-4 py-3">{r.quantityPounds} lb</td>
                     <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                    <td className="px-4 py-3"><ListingBadge consent={r.publicListingConsent} status={r.publicListingStatus} /></td>
                     <td className="px-4 py-3 text-[#6B5E4F]">{new Date(r.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-[#6B5E4F]">No requests match this search.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-[#6B5E4F]">No requests match this search.</td></tr>
                 )}
               </tbody>
             </table>
@@ -222,6 +224,32 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className="inline-block rounded-full bg-cream px-3 py-1 text-sm font-semibold text-charcoal">
       {STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+const LISTING_LABELS: Record<string, string> = {
+  private: "Private",
+  pending_review: "Pending review",
+  published: "Published",
+  unpublished: "Unpublished",
+};
+
+function ListingBadge({ consent, status }: { consent: boolean; status: string }) {
+  if (!consent) {
+    return (
+      <span className="inline-block rounded-full bg-[#F0E9DA] px-3 py-1 text-sm font-semibold text-[#6B5E4F]" title="The temple did not opt in to public listing.">
+        No opt-in
+      </span>
+    );
+  }
+  const highlighted = status === "published" || status === "pending_review";
+  return (
+    <span
+      className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${highlighted ? "bg-terracotta-soft text-terracotta-deeper" : "bg-[#F0E9DA] text-[#6B5E4F]"}`}
+      title="The temple opted in to public listing."
+    >
+      Opted in · {LISTING_LABELS[status] ?? status}
     </span>
   );
 }

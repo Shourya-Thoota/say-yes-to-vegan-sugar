@@ -17,6 +17,7 @@ export const SENTRY_OPERATIONS = [
   "support_offer_create",
   "contact_inquiry_create",
   "admin_request_status_update",
+  "admin_public_listing_update",
 ] as const;
 
 export type SentryOperation = (typeof SENTRY_OPERATIONS)[number];

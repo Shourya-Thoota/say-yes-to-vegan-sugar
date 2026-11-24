@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { Eyebrow } from "@/components/ui";
-import { CopyInquiryButton } from "./copy-button";
+import { SugarChecker } from "./sugar-checker";
+import { InquiryBuilder } from "./inquiry-builder";
+import { getSiteBaseUrl } from "@/lib/poster";
 
 export const metadata = {
   title: "Choosing Sugar",
   description: "Product-specific guidance for checking sugar processing for temple offerings and community meals.",
 };
 
-const INQUIRY_TEMPLATE =
-  "Hello, our temple is reviewing sugar for use in religious offerings and community meals. Could you confirm whether [product name and package size] is processed using bone char or any other animal-derived processing aids? If the answer depends on the manufacturing facility or lot, please explain how we can identify a suitable package. Thank you.";
-
 export default function ChoosingSugarPage() {
+  const base = getSiteBaseUrl(process.env);
+  const guideUrl = `${base}/choosing-sugar`;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
       <Eyebrow>Choosing sugar</Eyebrow>
@@ -50,6 +52,38 @@ export default function ChoosingSugarPage() {
         </p>
       </div>
 
+      <section id="checker" aria-labelledby="checker-heading" className="mt-10 scroll-mt-24">
+        <h2 id="checker-heading" className="text-2xl font-bold sm:text-3xl">
+          Check your bag: a short guided helper.
+        </h2>
+        <p className="mt-3 leading-relaxed text-[#4A4238]">
+          Work through your sugar one step at a time. This helper offers guidance only — it
+          does not certify products and does not store anything you choose.
+        </p>
+        <SugarChecker />
+        <noscript>
+          <div className="mt-6 rounded-2xl border border-[#D8CCB8] bg-white p-6 leading-relaxed">
+            <p className="font-bold">Without JavaScript, use these three steps:</p>
+            <ol className="mt-2 list-decimal space-y-2 pl-6">
+              <li>Write down the manufacturer, exact product name, and package size.</li>
+              <li>Look for product-specific vegan labeling or a current manufacturer statement for that exact product.</li>
+              <li>If the answer is unclear, use the inquiry wording on this page and keep the written reply with the date checked.</li>
+            </ol>
+            <p className="mt-3">
+              Useful references:{" "}
+              <a className="source-link" href="https://vegan.org/certification/certification-faqs" target="_blank" rel="noopener noreferrer">
+                Vegan Action Certification FAQs
+              </a>
+              {"; "}
+              <a className="source-link" href="https://www.dominosugar.com/baking-tips-how-tos/turbinado-faq" target="_blank" rel="noopener noreferrer">
+                Domino Turbinado FAQs
+              </a>
+              .
+            </p>
+          </div>
+        </noscript>
+      </section>
+
       <div className="mt-8 rounded-2xl border border-[#D8CCB8] bg-[#EFE7D8] p-5 sm:p-6">
         <h2 className="font-heading text-xl font-bold">For the kitchen wall</h2>
         <p className="mt-2 leading-relaxed text-[#4A4238]">
@@ -64,7 +98,7 @@ export default function ChoosingSugarPage() {
         </Link>
       </div>
 
-      <h2 className="mt-10 text-2xl font-bold sm:text-3xl">Product-checking checklist</h2>
+      <h2 id="checklist" className="mt-10 scroll-mt-24 text-2xl font-bold sm:text-3xl">Product-checking checklist</h2>
       <ol className="mt-4 divide-y divide-[#E5DCCB] border-y border-[#E5DCCB]">
         {[
           { t: "Identify the exact product.", d: "Record the manufacturer, product name, and package size—not just the retailer. Processing can differ between products, facilities, and time periods." },
@@ -90,16 +124,13 @@ export default function ChoosingSugarPage() {
         </a>
       </p>
 
-      <h2 className="mt-10 text-2xl font-bold sm:text-3xl">Manufacturer inquiry template</h2>
+      <h2 id="inquiry" className="mt-10 scroll-mt-24 text-2xl font-bold sm:text-3xl">Manufacturer inquiry builder</h2>
       <p className="mt-3 leading-relaxed text-[#4A4238]">
-        Copy and adapt this message when writing to a manufacturer. Replace the bracketed text
-        with the exact product name and package size.
+        Fill in what you know — every field is optional — then copy the draft or open it
+        in your email app. Nothing is sent automatically and nothing is stored.
       </p>
       <div className="mt-4 rounded-2xl border border-[#E5DCCB] bg-white p-6">
-        <p className="whitespace-pre-line leading-relaxed">{INQUIRY_TEMPLATE}</p>
-        <div className="mt-4">
-          <CopyInquiryButton text={INQUIRY_TEMPLATE} />
-        </div>
+        <InquiryBuilder guideUrl={guideUrl} />
       </div>
 
       <div className="mt-8 rounded-2xl border border-[#D8A679] bg-[#FFF8EF] p-5 leading-relaxed" role="note">

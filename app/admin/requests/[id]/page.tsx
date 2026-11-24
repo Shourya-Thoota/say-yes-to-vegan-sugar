@@ -81,10 +81,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               />
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button type="submit" name="action" value="publish" className="rounded-full bg-terracotta-deeper px-6 py-2.5 font-semibold text-white hover:bg-[#7E3B1E]">
+              <button type="submit" name="action" value="publish" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-terracotta-deeper px-6 py-2.5 font-semibold text-white hover:bg-[#7E3B1E]">
                 Approve &amp; publish
               </button>
-              <button type="submit" name="action" value="unpublish" className="rounded-full border border-charcoal px-6 py-2.5 font-semibold hover:bg-cream">
+              <button type="submit" name="action" value="unpublish" className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-charcoal px-6 py-2.5 font-semibold hover:bg-cream">
                 Unpublish
               </button>
             </div>

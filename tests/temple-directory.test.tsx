@@ -179,10 +179,11 @@ vi.mock("@/lib/auth", () => ({
 const dirMock = vi.hoisted(() => ({ listings: [] as unknown[], total: 0 }));
 vi.mock("@/lib/public-directory", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/public-directory")>();
+  const { vi: mockVi } = await import("vitest");
   return {
     ...mod,
-    getPublishedTemples: async () => dirMock.listings,
-    countPublishedTemples: async () => dirMock.total,
+    getPublishedTemples: mockVi.fn(async () => dirMock.listings),
+    countPublishedTemples: mockVi.fn(async () => dirMock.total),
   };
 });
 
@@ -488,5 +489,21 @@ describe("/temples page", () => {
     const node = await TemplesPage({ searchParams: Promise.resolve({ state: "CA", q: "zzz" }) });
     render(node);
     expect(screen.getByText(/no temples match this search/i)).toBeTruthy();
+  });
+
+  it("degrades gracefully when the directory query rejects (DB outage)", async () => {
+    const pubDir = await import("@/lib/public-directory");
+    vi.mocked(pubDir.getPublishedTemples).mockRejectedValueOnce(
+      new Error("Temple directory unavailable.")
+    );
+    const node = await TemplesPage({ searchParams: Promise.resolve({}) });
+    const { container } = render(node);
+    // Calm, accessible notice instead of a 500.
+    expect(screen.getByText(/temporarily unavailable/i)).toBeTruthy();
+    expect(screen.getByRole("status")).toBeTruthy();
+    // Disclaimer and navigation stay intact.
+    expect(screen.getByText(/not a certification/i)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /temple directory/i })).toBeTruthy();
+    expect(container.textContent).not.toMatch(/Temple directory unavailable\./);
   });
 });

@@ -1,6 +1,7 @@
 import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { donationRequests } from "./schema";
+import { reportHandledError } from "./sentry";
 
 /**
  * Public Temple Directory (Part 3A) — privacy-safe read layer.
@@ -82,35 +83,48 @@ export async function getPublishedTemples(
     );
   }
 
-  const rows = await db
-    .select({
-      publicRef: donationRequests.publicRef,
-      templeName: donationRequests.templeName,
-      city: donationRequests.city,
-      state: donationRequests.state,
-      templeWebsite: donationRequests.templeWebsite,
-      publicListingSummary: donationRequests.publicListingSummary,
-      publicListingReviewedAt: donationRequests.publicListingReviewedAt,
-    })
-    .from(donationRequests)
-    .where(and(...conditions))
-    .orderBy(asc(donationRequests.templeName))
-    .limit(500);
+  try {
+    const rows = await db
+      .select({
+        publicRef: donationRequests.publicRef,
+        templeName: donationRequests.templeName,
+        city: donationRequests.city,
+        state: donationRequests.state,
+        templeWebsite: donationRequests.templeWebsite,
+        publicListingSummary: donationRequests.publicListingSummary,
+        publicListingReviewedAt: donationRequests.publicListingReviewedAt,
+      })
+      .from(donationRequests)
+      .where(and(...conditions))
+      .orderBy(asc(donationRequests.templeName))
+      .limit(500);
 
-  return rows;
+    return rows;
+  } catch {
+    // Never leak SQL, connection details, or submitted values: report a
+    // fixed operation event, then throw a generic error for /temples to
+    // degrade gracefully.
+    reportHandledError("temple_directory_read", "/temples");
+    throw new Error("Temple directory unavailable.");
+  }
 }
 
 export async function countPublishedTemples(): Promise<number> {
   const db = getDb();
   if (!db) return 0;
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(donationRequests)
-    .where(
-      and(
-        eq(donationRequests.publicListingConsent, true),
-        eq(donationRequests.publicListingStatus, "published")
-      )
-    );
-  return n;
+  try {
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(donationRequests)
+      .where(
+        and(
+          eq(donationRequests.publicListingConsent, true),
+          eq(donationRequests.publicListingStatus, "published")
+        )
+      );
+    return n;
+  } catch {
+    reportHandledError("temple_directory_read", "/temples");
+    throw new Error("Temple directory unavailable.");
+  }
 }

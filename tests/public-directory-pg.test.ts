@@ -263,18 +263,41 @@ pgDescribe("public temple directory (real PostgreSQL, synthetic data)", () => {
       return rows[0].publicRef;
     }
 
-    const refTX = await publishTemple(synthKey("tx"), {
+    // Public submissions must reject javascript: URLs at validation (400).
+    const hostileRes = await requestsPost(
+      post(
+        validDonation(synthKey("ca-hostile"), {
+          publicListingConsent: true,
+          templeName: "Synthetic Fremont Mandir",
+          city: "Fremont",
+          state: "CA",
+          templeWebsite: "javascript:alert(1)",
+        }),
+        freshIp()
+      )
+    );
+    expect(hostileRes.status).toBe(400);
+
+    const txKey = synthKey("tx");
+    const refTX = await publishTemple(txKey, {
       templeName: "Synthetic Austin Mandir",
       city: "Austin",
       state: "TX",
       templeWebsite: "https://austin-mandir.example.org",
     });
-    const refCA = await publishTemple(synthKey("ca"), {
+    const caKey = synthKey("ca");
+    const refCA = await publishTemple(caKey, {
       templeName: "Synthetic Fremont Mandir",
       city: "Fremont",
       state: "CA",
-      templeWebsite: "javascript:alert(1)",
+      templeWebsite: "https://fremont-mandir.example.org",
     });
+    // Defense-in-depth: hostile value written directly in PostgreSQL
+    // (bypassing validation) must never become a clickable link.
+    await db
+      .update(donationRequests)
+      .set({ templeWebsite: "javascript:alert(1)" })
+      .where(eq(donationRequests.idempotencyKey, caKey));
 
     const txOnly = await getPublishedTemples({ state: "TX" });
     expect(txOnly.map((t) => t.publicRef)).toContain(refTX);

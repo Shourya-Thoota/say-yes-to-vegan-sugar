@@ -18,8 +18,18 @@ export default async function TemplesPage({
   const state = (sp.state ?? "").trim().toUpperCase();
   const q = (sp.q ?? "").trim();
   const activeState = /^[A-Z]{2}$/.test(state) ? state : "";
-  const listings = await getPublishedTemples({ state: activeState, q });
-  const total = await countPublishedTemples();
+  let listings: Awaited<ReturnType<typeof getPublishedTemples>> = [];
+  let total = 0;
+  let unavailable = false;
+  try {
+    listings = await getPublishedTemples({ state: activeState, q });
+    total = await countPublishedTemples();
+  } catch {
+    // Database is configured but unreachable or erroring: degrade gracefully
+    // instead of crashing /temples with a 500. The error itself was already
+    // reported (fixed message, no PII) inside lib/public-directory.ts.
+    unavailable = true;
+  }
   const isFiltered = activeState !== "" || q !== "";
 
   return (
@@ -71,21 +81,48 @@ export default async function TemplesPage({
         </div>
         <button
           type="submit"
-          className="rounded-full bg-charcoal px-6 py-2.5 font-semibold text-white hover:bg-black"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-charcoal px-6 py-2.5 font-semibold text-white hover:bg-black"
         >
           Search
         </button>
         {isFiltered && (
           <Link
             href="/temples"
-            className="rounded-full border border-[#D8CCB8] px-6 py-2.5 text-center font-semibold hover:bg-cream"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[#D8CCB8] px-6 py-2.5 text-center font-semibold hover:bg-cream"
           >
             Clear
           </Link>
         )}
       </form>
 
-      {total === 0 ? (
+      {unavailable ? (
+        <section
+          aria-live="polite"
+          role="status"
+          className="mt-6 rounded-2xl border border-[#E5DCCB] bg-white p-8 text-center"
+        >
+          <h2 className="font-heading text-2xl font-bold">The directory is temporarily unavailable.</h2>
+          <p className="mx-auto mt-3 max-w-xl leading-relaxed text-[#4A4238]">
+            We could not load temple listings just now. Please try again in a little while.
+            If your temple would like to take part, you can still start a donation request
+            or learn how to check sugar processing.
+          </p>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href="/request-sugar"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-terracotta-deeper px-6 py-3 font-semibold text-white hover:bg-[#7E3B1E]"
+            >
+              Request Sugar for Your Temple
+            </Link>
+            <Link
+              href="/choosing-sugar"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-terracotta-deeper px-6 py-3 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+            >
+              Choosing-Sugar Guide
+            </Link>
+          </div>
+        </section>
+      ) : total === 0 ? (
         <section
           aria-live="polite"
           className="mt-6 rounded-2xl border border-[#E5DCCB] bg-white p-8 text-center"
@@ -99,13 +136,13 @@ export default async function TemplesPage({
           <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               href="/request-sugar"
-              className="rounded-full bg-terracotta-deeper px-6 py-3 font-semibold text-white hover:bg-[#7E3B1E]"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-terracotta-deeper px-6 py-3 font-semibold text-white hover:bg-[#7E3B1E]"
             >
               Request Sugar for Your Temple
             </Link>
             <Link
               href="/choosing-sugar"
-              className="rounded-full border border-terracotta-deeper px-6 py-3 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-terracotta-deeper px-6 py-3 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
             >
               Choosing-Sugar Guide
             </Link>
@@ -122,7 +159,7 @@ export default async function TemplesPage({
           </p>
           <Link
             href="/temples"
-            className="mt-5 inline-block rounded-full border border-terracotta-deeper px-6 py-3 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+            className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-terracotta-deeper px-6 py-3 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
           >
             View all listed temples
           </Link>
@@ -153,7 +190,7 @@ export default async function TemplesPage({
                         href={safeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-full border border-terracotta-deeper px-5 py-2 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-terracotta-deeper px-5 py-2 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
                       >
                         Visit website
                       </a>

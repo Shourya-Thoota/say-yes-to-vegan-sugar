@@ -145,21 +145,22 @@ function validContact(key: string) {
 async function cleanupSyntheticRows(): Promise<void> {
   const pool = getPool();
   if (!pool) return;
-  // Delete ONLY synthetic rows created by this suite.
+  // Delete ONLY synthetic rows created by this suite (RUN_ID-scoped so
+  // parallel PG suites sharing one database cannot delete each other's rows).
   await pool.query(
-    `DELETE FROM "request_status_history" WHERE "request_id" IN (SELECT "id" FROM "donation_requests" WHERE "contact_email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-%')`
+    `DELETE FROM "request_status_history" WHERE "request_id" IN (SELECT "id" FROM "donation_requests" WHERE "contact_email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-${RUN_ID}%')`
   );
   await pool.query(
-    `DELETE FROM "donation_requests" WHERE "contact_email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-%'`
+    `DELETE FROM "donation_requests" WHERE "contact_email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-${RUN_ID}%'`
   );
   await pool.query(
-    `DELETE FROM "support_offers" WHERE "email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-%'`
+    `DELETE FROM "support_offers" WHERE "email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-${RUN_ID}%'`
   );
   await pool.query(
-    `DELETE FROM "contact_inquiries" WHERE "email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-%'`
+    `DELETE FROM "contact_inquiries" WHERE "email" ILIKE '%@example.org' AND "idempotency_key" LIKE 'pg-test-${RUN_ID}%'`
   );
   await pool.query(
-    `DELETE FROM "rate_limits" WHERE "key" LIKE '%10.221.%' OR "key" LIKE 'pg-test-%'`
+    `DELETE FROM "rate_limits" WHERE "key" LIKE '%10.221.%' OR "key" LIKE 'pg-test-${RUN_ID}%'`
   );
 }
 

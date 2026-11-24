@@ -13,8 +13,10 @@
  * Otherwise the whole suite skips cleanly.
  *
  * Safety: refuses production-like hosts; synthetic data only
- * (example.org, 10.223.x.x IPs, `pg-test-` keys); cleans up only
- * synthetic rows after each test.
+ * (example.org, `pg3b-`/`SUP-`/`cs_pg_`/`evt_pg_`/`pgatt-` keys scoped to a
+ * random RUN_ID); cleans up only synthetic rows after each test.
+ * Idempotency keys use the `pg3b-` prefix (not `pg-test-`) so the older
+ * suites' broad `pg-test-%` cleanups can never match this suite's rows.
  */
 import { describe, expect, it, beforeAll, afterEach, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
@@ -99,7 +101,7 @@ async function cleanupSyntheticRows(): Promise<void> {
     `DELETE FROM "sponsorship_checkout_attempts" WHERE "attempt_key" LIKE 'pgatt-${RUN_ID}%'`
   );
   await pool.query(
-    `DELETE FROM "donation_requests" WHERE "temple_name" LIKE '%${RUN_ID}%' OR "idempotency_key" LIKE 'pg-test-${RUN_ID}%'`
+    `DELETE FROM "donation_requests" WHERE "temple_name" LIKE '%${RUN_ID}%' OR "idempotency_key" LIKE 'pg3b-${RUN_ID}%'`
   );
 }
 
@@ -132,7 +134,7 @@ async function insertSyntheticRequest(overrides: Record<string, unknown> = {}) {
     .insert(donationRequests)
     .values({
       publicRef: synthRef("SVS"),
-      idempotencyKey: `pg-test-${RUN_ID}-${keyCounter}`,
+      idempotencyKey: `pg3b-${RUN_ID}-${keyCounter}`,
       templeName: `Synthetic Temple ${RUN_ID}`,
       streetAddress: "100 Test Ave",
       city: "Houston",
@@ -374,8 +376,9 @@ pgDescribe("sponsorship + fulfillment hardening (real PostgreSQL, synthetic data
     expect(second.reused).toBe(true);
     expect(second.url).toBe(first.url);
     expect(second.publicRef).toBe(first.publicRef);
-    // Stripe saw one logical session (idempotency key) across both calls.
-    expect(stripe.calls()).toBe(2);
+    // The retry reused the persisted attempt without a second Stripe call:
+    // one logical session total, same usable URL returned twice.
+    expect(stripe.calls()).toBe(1);
     const orders = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.checkoutAttemptKey, attemptKey)).limit(5);
     expect(orders.length).toBe(1);
     expect(orders[0].termsVersion).toBe("v1");

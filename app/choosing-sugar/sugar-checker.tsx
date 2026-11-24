@@ -129,7 +129,6 @@ export function SugarChecker() {
               <Link
                 href="/poster"
                 onClick={() => setNextAction("print")}
-                aria-pressed={nextAction === "print"}
                 className={`inline-block min-h-[44px] rounded-xl px-6 py-3 text-center font-semibold ${
                   nextAction === "print"
                     ? "bg-charcoal text-white"

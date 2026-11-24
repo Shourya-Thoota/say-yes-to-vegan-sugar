@@ -197,6 +197,64 @@ export const outreachProspects = pgTable(
   (t) => [index("outreach_status_idx").on(t.outreachStatus)]
 );
 
+export const SPONSORSHIP_ORDER_STATUSES = ["pending", "paid", "expired", "refunded"] as const;
+
+export type SponsorshipOrderStatus = (typeof SPONSORSHIP_ORDER_STATUSES)[number];
+
+export const sponsorshipOrders = pgTable(
+  "sponsorship_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    publicRef: varchar("public_ref", { length: 20 }).notNull().unique(),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull().unique(),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    tierCode: varchar("tier_code", { length: 32 }).notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("usd"),
+    estimatedPounds: integer("estimated_pounds").notNull(),
+    sponsorDisplayName: text("sponsor_display_name"),
+    sponsorEmail: text("sponsor_email"),
+    publicRecognitionConsent: boolean("public_recognition_consent").notNull().default(false),
+    status: varchar("status", { length: 24 }).notNull().default("pending"),
+    allocatedRequestId: uuid("allocated_request_id").references(() => donationRequests.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("sponsorship_orders_status_idx").on(t.status),
+    index("sponsorship_orders_created_idx").on(t.createdAt),
+    uniqueIndex("sponsorship_orders_public_ref_uidx").on(t.publicRef),
+  ]
+);
+
+export const fulfillmentLedger = pgTable(
+  "fulfillment_ledger",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    publicRef: varchar("public_ref", { length: 20 }).notNull().unique(),
+    donationRequestId: uuid("donation_request_id").references(() => donationRequests.id, { onDelete: "set null" }),
+    sponsorshipOrderId: uuid("sponsorship_order_id").references(() => sponsorshipOrders.id, { onDelete: "set null" }),
+    recipientLabel: text("recipient_label").notNull(),
+    city: text("city"),
+    state: varchar("state", { length: 2 }),
+    poundsDelivered: integer("pounds_delivered").notNull(),
+    sugarProductLabel: text("sugar_product_label").notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }).notNull(),
+    recordedBy: text("recorded_by").notNull(),
+    internalNotes: text("internal_notes"),
+    publicVisible: boolean("public_visible").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("fulfillment_ledger_public_visible_idx").on(t.publicVisible),
+    index("fulfillment_ledger_delivered_at_idx").on(t.deliveredAt),
+    uniqueIndex("fulfillment_ledger_public_ref_uidx").on(t.publicRef),
+  ]
+);
+
 export type DonationRequest = typeof donationRequests.$inferSelect;
 export type SupportOffer = typeof supportOffers.$inferSelect;
 export type ContactInquiry = typeof contactInquiries.$inferSelect;
+export type SponsorshipOrder = typeof sponsorshipOrders.$inferSelect;
+export type FulfillmentLedgerEntry = typeof fulfillmentLedger.$inferSelect;

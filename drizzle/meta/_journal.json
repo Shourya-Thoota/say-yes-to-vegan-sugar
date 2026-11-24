@@ -15,6 +15,13 @@
       "when": 1795549477168,
       "tag": "0001_public_temple_directory",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1796361600000,
+      "tag": "0002_sponsorship_fulfillment",
+      "breakpoints": true
     }
   ]
 }

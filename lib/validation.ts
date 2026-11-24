@@ -167,6 +167,42 @@ export const adminListingActionSchema = z.object({
   action: z.enum(["publish", "unpublish"]),
 });
 
+// Part 3B: public sponsorship checkout. Tier code is the only pricing input;
+// amounts are resolved server-side. Terms acknowledgement is required.
+export const sponsorshipCheckoutSchema = z.object({
+  tierCode: z.enum(["bag_10", "bag_25", "bag_50", "bag_100"], {
+    required_error: "Choose a sponsorship tier.",
+  }),
+  sponsorDisplayName: z.string().trim().max(80, "Display name must be 80 characters or fewer.").optional().default(""),
+  publicRecognitionConsent: z.boolean().optional().default(false),
+  acknowledgesTerms: z.literal(true, {
+    errorMap: () => ({ message: "Please acknowledge the sponsorship terms before continuing." }),
+  }),
+});
+
+export type SponsorshipCheckoutInput = z.infer<typeof sponsorshipCheckoutSchema>;
+
+// Part 3B: admin fulfillment-ledger entry (private fields stay server-side).
+export const fulfillmentEntrySchema = z.object({
+  recipientLabel: z.string().trim().min(2, "Recipient label is required.").max(200),
+  city: z.string().trim().max(120).optional().default(""),
+  state: z.string().trim().max(2).optional().default(""),
+  poundsDelivered: z.coerce.number({ invalid_type_error: "Enter pounds delivered." }).int().positive("Pounds must be more than zero.").max(100000),
+  sugarProductLabel: z.string().trim().min(2, "Product label is required.").max(300),
+  deliveredAt: z.string().trim().min(1, "Delivery date is required.").max(30),
+  publicVisible: z.boolean().optional().default(false),
+  internalNotes: z.string().trim().max(2000).optional().default(""),
+  donationRequestId: z.string().trim().max(64).optional().default(""),
+  sponsorshipOrderId: z.string().trim().max(64).optional().default(""),
+});
+
+export type FulfillmentEntryInput = z.infer<typeof fulfillmentEntrySchema>;
+
+export const fulfillmentVisibilitySchema = z.object({
+  entryId: z.string().trim().min(1, "Entry is required."),
+  publicVisible: z.enum(["true", "false"]),
+});
+
 export function flattenZodErrors(error: z.ZodError) {
   const out: Record<string, string> = {};
   for (const issue of error.issues) {

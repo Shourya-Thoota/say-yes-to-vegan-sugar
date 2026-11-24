@@ -19,6 +19,10 @@ export const SENTRY_OPERATIONS = [
   "admin_request_status_update",
   "admin_public_listing_update",
   "temple_directory_read",
+  "sponsorship_checkout_create",
+  "stripe_webhook_receive",
+  "fulfillment_ledger_read",
+  "fulfillment_ledger_write",
 ] as const;
 
 export type SentryOperation = (typeof SENTRY_OPERATIONS)[number];

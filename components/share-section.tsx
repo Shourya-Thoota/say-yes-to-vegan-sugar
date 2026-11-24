@@ -114,7 +114,7 @@ export function ShareSection() {
       </div>
       <div className="rounded-2xl border border-[#E5DCCB] bg-white p-6">
         <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6B5E4F]">Suggested message</p>
-        <p lang={language} className="mt-3 break-words text-[15px] leading-relaxed text-[#4A4238]">
+        <p lang={language} className="mt-3 whitespace-pre-line break-words text-[15px] leading-relaxed text-[#4A4238]">
           {message || "Loading share message…"}
         </p>
       </div>

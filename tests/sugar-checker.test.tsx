@@ -81,4 +81,14 @@ describe("sugar checker interaction", () => {
     expect(screen.getByText(/does not cover all/i)).toBeTruthy();
     expect(screen.getByText(/do not extend one turbinado/i, { exact: false })).toBeTruthy();
   });
+
+  it("keeps aria-pressed on the toggle buttons but not on the poster link", () => {
+    render(<SugarChecker />);
+    fireEvent.click(screen.getByLabelText(/Beet sugar/i));
+    // Toggle buttons validly expose their pressed state.
+    expect(screen.getByRole("button", { name: /review the checklist/i }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: /draft an inquiry/i }).getAttribute("aria-pressed")).toBe("false");
+    // aria-pressed is not valid on links; the poster navigation link must omit it.
+    expect(screen.getByRole("link", { name: /print the kitchen guide/i }).hasAttribute("aria-pressed")).toBe(false);
+  });
 });

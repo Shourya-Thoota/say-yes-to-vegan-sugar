@@ -1,14 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { buildShareData, buildShareText, getSiteUrl } from "@/lib/share";
+import {
+  PUBLISHED_SHARE_LANGUAGES,
+  buildShareData,
+  buildShareText,
+  getShareMessageForLanguage,
+  getSiteUrl,
+} from "@/lib/share";
 
 export function ShareSection() {
   const [status, setStatus] = useState<string>("");
   const [failed, setFailed] = useState(false);
+  const [language, setLanguage] = useState<string>("en");
 
   async function copyText(text: string, okMessage: string) {
     try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(text);
       setStatus(okMessage);
       setFailed(false);
@@ -20,10 +28,11 @@ export function ShareSection() {
 
   async function handleNativeShare() {
     const siteUrl = getSiteUrl();
+    const message = getShareMessageForLanguage(language);
     const data = buildShareData(siteUrl);
     try {
       if (navigator.share) {
-        await navigator.share(data);
+        await navigator.share({ ...data, text: message });
         setStatus("Thanks for helping spread the message.");
         setFailed(false);
       } else {
@@ -40,12 +49,35 @@ export function ShareSection() {
   }
 
   const siteUrl = typeof window !== "undefined" ? getSiteUrl() : "";
-  const message = siteUrl ? buildShareText(siteUrl) : "";
+  const message = siteUrl ? buildShareText(siteUrl, language) : "";
+  const selectedLang = PUBLISHED_SHARE_LANGUAGES.find((l) => l.code === language);
 
   return (
     <div className="mt-8 grid gap-8 md:grid-cols-[1.1fr_0.9fr] md:items-start">
       <div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div>
+          <label htmlFor="share-language" className="block text-[15px] font-semibold text-charcoal">
+            Message language
+          </label>
+          <select
+            id="share-language"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            lang={selectedLang?.code ?? "en"}
+            className="mt-1 block w-full max-w-xs rounded-xl border border-[#D8CCB8] bg-white px-4 py-3 text-base text-charcoal focus:border-terracotta-deeper focus:outline-none"
+          >
+            {PUBLISHED_SHARE_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code} lang={l.code}>
+                {l.nativeLabel} ({l.label})
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-sm text-[#6B5E4F]">
+            English is published today. Additional community languages are in review —
+            see our translation notes before sharing other versions.
+          </p>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={handleNativeShare}
@@ -62,7 +94,7 @@ export function ShareSection() {
           </button>
           <button
             type="button"
-            onClick={() => copyText(buildShareText(getSiteUrl()), "Message copied. Paste it into email, text, or a community group.")}
+            onClick={() => copyText(buildShareText(getSiteUrl(), language), "Message copied. Paste it into email, text, or a community group.")}
             className="min-h-[44px] rounded-xl border border-[#D8CCB8] bg-white px-7 py-3.5 text-center text-base font-semibold text-charcoal hover:bg-[#EFE7D8]"
           >
             Copy Message
@@ -74,10 +106,15 @@ export function ShareSection() {
         <p className="mt-2 text-sm text-[#6B5E4F]">
           No contacts are accessed and nothing is sent automatically. You choose where to share.
         </p>
+        <noscript>
+          <p className="mt-3 text-[15px] leading-relaxed">
+            Share this page: https://say-yes-to-vegan-sugar-production.up.railway.app/
+          </p>
+        </noscript>
       </div>
       <div className="rounded-2xl border border-[#E5DCCB] bg-white p-6">
         <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6B5E4F]">Suggested message</p>
-        <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-[#4A4238]">
+        <p lang={language} className="mt-3 break-words text-[15px] leading-relaxed text-[#4A4238]">
           {message || "Loading share message…"}
         </p>
       </div>

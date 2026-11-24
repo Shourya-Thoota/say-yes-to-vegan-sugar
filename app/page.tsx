@@ -61,7 +61,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
-                href="/choosing-sugar"
+                href="/choosing-sugar#checker"
                 className="min-h-[44px] rounded-xl bg-terracotta-deeper px-7 py-3.5 text-center text-base font-semibold text-white shadow-sm hover:bg-[#7E3B1E]"
               >
                 Learn how to check sugar

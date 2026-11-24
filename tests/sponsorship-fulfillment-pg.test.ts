@@ -44,11 +44,13 @@ const pgDescribe = enabled ? describe : describe.skipIf(true);
 // ---------------------------------------------------------------------------
 const RUN_ID = `r${Date.now().toString(36)}${Math.floor(Math.random() * 0xffff).toString(36)}`.slice(
   0,
-  12
+  8
 );
 let keyCounter = 0;
 function synthRef(prefix: string): string {
   keyCounter += 1;
+  // Keep refs unique within varchar(20): short prefix + short run id + counter.
+  // e.g. SUP-r1a2b3c4-7 (well under 20 chars).
   return `${prefix}-${RUN_ID}-${keyCounter}`.slice(0, 20);
 }
 
@@ -56,10 +58,10 @@ async function cleanupSyntheticRows(): Promise<void> {
   const pool = getPool();
   if (!pool) return;
   await pool.query(
-    `DELETE FROM "fulfillment_ledger" WHERE "public_ref" LIKE 'SUP-PG-${RUN_ID}%' OR "recipient_label" LIKE '%${RUN_ID}%'`
+    `DELETE FROM "fulfillment_ledger" WHERE "public_ref" LIKE 'SUP-${RUN_ID}%' OR "recipient_label" LIKE '%${RUN_ID}%'`
   );
   await pool.query(
-    `DELETE FROM "sponsorship_orders" WHERE "public_ref" LIKE 'SUP-PG-${RUN_ID}%' OR "stripe_checkout_session_id" LIKE 'cs_pg_${RUN_ID}%'`
+    `DELETE FROM "sponsorship_orders" WHERE "public_ref" LIKE 'SUP-${RUN_ID}%' OR "stripe_checkout_session_id" LIKE 'cs_pg_${RUN_ID}%'`
   );
 }
 
@@ -118,7 +120,7 @@ pgDescribe("sponsorship + fulfillment (real PostgreSQL, synthetic data)", () => 
   it("order lifecycle: pending -> paid idempotently -> refunded", async () => {
     const db = getDb()!;
     const sessionId = `cs_pg_${RUN_ID}_${Date.now()}_1`;
-    const publicRef = synthRef("SUP-PG");
+    const publicRef = synthRef("SUP");
     const inserted = await db
       .insert(sponsorshipOrders)
       .values({
@@ -185,8 +187,8 @@ pgDescribe("sponsorship + fulfillment (real PostgreSQL, synthetic data)", () => 
 
   it("public ledger filters private rows and excludes all PII", async () => {
     const db = getDb()!;
-    const visibleRef = synthRef("SUP-PG");
-    const hiddenRef = synthRef("SUP-PG");
+    const visibleRef = synthRef("SUP");
+    const hiddenRef = synthRef("SUP");
     await db.insert(fulfillmentLedger).values({
       publicRef: visibleRef,
       recipientLabel: `Synthetic Temple Kitchen ${RUN_ID}`,

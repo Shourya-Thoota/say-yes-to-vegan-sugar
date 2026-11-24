@@ -3,9 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "./db";
-import { donationRequests, requestNotes, statusHistory } from "./schema";
+import {
+  donationRequests,
+  requestNotes,
+  statusHistory,
+  PUBLIC_LISTING_SUMMARY_MAX_LENGTH,
+  type PublicListingStatus,
+} from "./schema";
 import { requireAdmin } from "./auth";
-import { adminNoteSchema, adminStatusSchema } from "./validation";
+import { adminListingActionSchema, adminListingSummarySchema, adminNoteSchema, adminStatusSchema } from "./validation";
+import { sanitizeListingSummary } from "./public-directory";
 import { getServerConfig } from "./config";
 import { captureVerificationEvent, reportHandledError } from "./sentry";
 
@@ -45,6 +52,72 @@ export async function updateRequestStatus(requestId: string, formData: FormData)
   }
   revalidatePath("/admin");
   revalidatePath(`/admin/requests/${requestId}`);
+}
+
+/**
+ * Part 3A: moderate the optional public-directory listing for a request.
+ *
+ * Dual gate enforced server-side:
+ *   1. `publish` requires explicit opt-in consent (`publicListingConsent`).
+ *      Requests that did not opt in are rejected — they can never appear
+ *      on /temples.
+ *   2. Only an authenticated admin (requireAdmin) can publish/unpublish.
+ *
+ * `unpublish` removes the temple from the public directory immediately
+ * while preserving the original opt-in consent record.
+ * Every change records reviewer + timestamp and writes an admin-only audit
+ * note (never exposed publicly, never alters request status history).
+ */
+export async function updatePublicListing(requestId: string, formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) throw new Error("Unauthorized");
+  const parsedAction = adminListingActionSchema.safeParse({ action: formData.get("action") });
+  if (!parsedAction.success) throw new Error("Invalid listing action.");
+  const parsedSummary = adminListingSummarySchema.safeParse({ summary: formData.get("summary") ?? "" });
+  if (!parsedSummary.success) throw new Error("Summary must be 240 characters or fewer.");
+  const db = getDb();
+  if (!db) throw new Error("Database unavailable.");
+
+  const current = await db.select().from(donationRequests).where(eq(donationRequests.id, requestId)).limit(1);
+  if (current.length === 0) throw new Error("Request not found.");
+  const row = current[0];
+
+  const action = parsedAction.data.action;
+  const nextStatus: PublicListingStatus = action === "publish" ? "published" : "unpublished";
+
+  // Server-side dual gate: publishing requires explicit opt-in consent.
+  if (action === "publish" && row.publicListingConsent !== true) {
+    throw new Error("This request did not opt in to public listing.");
+  }
+
+  const summary = sanitizeListingSummary(parsedSummary.data.summary)?.slice(0, PUBLIC_LISTING_SUMMARY_MAX_LENGTH) ?? null;
+  const now = new Date();
+  const auditBody =
+    action === "publish"
+      ? `Public directory: published by ${admin.email}.`
+      : `Public directory: unpublished by ${admin.email}.`;
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(donationRequests)
+        .set({
+          publicListingStatus: nextStatus,
+          publicListingSummary: summary,
+          publicListingReviewedBy: admin.email,
+          publicListingReviewedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(donationRequests.id, requestId));
+      await tx.insert(requestNotes).values({ requestId, authorEmail: admin.email, body: auditBody });
+    });
+  } catch {
+    reportHandledError("admin_public_listing_update");
+    throw new Error("Listing update failed.");
+  }
+  revalidatePath("/admin");
+  revalidatePath(`/admin/requests/${requestId}`);
+  revalidatePath("/temples");
 }
 
 export async function addRequestNote(requestId: string, formData: FormData) {

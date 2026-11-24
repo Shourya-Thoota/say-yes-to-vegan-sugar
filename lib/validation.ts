@@ -86,6 +86,11 @@ export const donationRequestSchema = z
     privacyConsent: z.literal(true, {
       errorMap: () => ({ message: "Privacy consent is required." }),
     }),
+    // Part 3A: optional public-directory opt-in. Unchecked by default.
+    // Only consent is accepted from public submissions; listing status is
+    // derived server-side (pending_review vs private) and can never be set
+    // to "published" except by an authenticated admin.
+    publicListingConsent: z.boolean().optional().default(false),
   })
   .superRefine((v, ctx) => {
     if (v.preferredContact === "phone" && !v.contactPhone?.trim()) {
@@ -145,6 +150,21 @@ export const adminStatusSchema = z.object({
 
 export const adminNoteSchema = z.object({
   body: z.string().trim().min(1, "Note cannot be empty.").max(2000),
+});
+
+// Admin-only: short plain-text public note shown on /temples. Sanitized
+// (no HTML/URLs with schemes stripped at render) and length-bounded.
+export const adminListingSummarySchema = z.object({
+  summary: z
+    .string()
+    .trim()
+    .max(240, "Summary must be 240 characters or fewer.")
+    .optional()
+    .default(""),
+});
+
+export const adminListingActionSchema = z.object({
+  action: z.enum(["publish", "unpublish"]),
 });
 
 export function flattenZodErrors(error: z.ZodError) {

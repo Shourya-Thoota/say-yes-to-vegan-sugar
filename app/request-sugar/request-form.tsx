@@ -56,6 +56,7 @@ export function RequestForm({ disabled }: Props) {
       productPreferences: "",
       deliveryInstructions: "",
       additionalNotes: "",
+      publicListingConsent: false,
     } as unknown as DonationRequestInput,
   });
 
@@ -77,7 +78,7 @@ export function RequestForm({ disabled }: Props) {
       0: ["templeName", "templeWebsite", "streetAddress", "city", "state", "zipCode"],
       1: ["contactName", "contactRole", "contactEmail", "contactPhone", "preferredContact", "authorized"],
       2: ["quantityPounds", "dateNeeded", "intendedUse", "otherUseExplanation"],
-      3: ["understandsNoGuarantee", "privacyConsent"],
+      3: ["understandsNoGuarantee", "privacyConsent", "publicListingConsent"],
     };
     const ok = await trigger(fieldsByStep[step] as never);
     if (ok) setStep((s) => Math.min(s + 1, 3));
@@ -345,6 +346,20 @@ export function RequestForm({ disabled }: Props) {
               <span className="text-[15px] leading-relaxed">I agree to the <a href="/privacy" target="_blank" className="underline">Privacy Policy</a> and consent to being contacted about this request. *</span>
             </label>
             <FieldError id="privacyConsent-error" message={errMsg("privacyConsent")} />
+          </div>
+          <div className="rounded-xl border border-[#D8CCB8] bg-white p-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" {...register("publicListingConsent")} className="mt-1 h-5 w-5 accent-[#9C4A26]" />
+              <span className="text-[15px] leading-relaxed">
+                <strong>Optional: List our temple in the public Temple Initiative directory after review.</strong>
+              </span>
+            </label>
+            <ul className="mt-2 list-disc space-y-1 pl-8 text-sm leading-relaxed text-[#4A4238]">
+              <li>Opting in is completely optional and does not affect eligibility.</li>
+              <li>If approved, only the temple name, city, state, optional website, and a brief participation note are shown publicly.</li>
+              <li>Contact name, email, phone number, street address, ZIP code, and private notes are never published.</li>
+              <li>You can ask to be removed at any time via the <a href="/contact" className="underline">Contact page</a>.</li>
+            </ul>
           </div>
         </div>
       )}

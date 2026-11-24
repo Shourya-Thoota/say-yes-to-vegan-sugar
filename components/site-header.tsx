@@ -9,6 +9,7 @@ const NAV = [
   { href: "/#what-to-look", label: "What to Look For" },
   { href: "/#share", label: "Share the Message" },
   { href: "/#faq", label: "FAQ" },
+  { href: "/temples", label: "Temples" },
 ];
 
 export function SiteHeader() {

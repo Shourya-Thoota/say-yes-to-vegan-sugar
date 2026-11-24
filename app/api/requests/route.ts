@@ -102,6 +102,11 @@ export async function POST(req: Request) {
           privacyConsent: true,
           privacyPolicyVersion: "v1",
           status: "submitted",
+          // Part 3A: public listings can NEVER self-publish. Consent only
+          // moves a request to "pending_review"; "published" is admin-only.
+          publicListingConsent: v.publicListingConsent === true,
+          publicListingConsentAt: v.publicListingConsent === true ? new Date() : null,
+          publicListingStatus: v.publicListingConsent === true ? "pending_review" : "private",
         })
         .returning({ id: donationRequests.id, publicRef: donationRequests.publicRef });
       await tx.insert(statusHistory).values({

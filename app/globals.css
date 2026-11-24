@@ -70,3 +70,63 @@ section[id] {
     scroll-behavior: auto !important;
   }
 }
+
+/* Keep tap targets comfortable and prevent sideways scrolling on small screens. */
+button,
+a {
+  min-height: auto;
+}
+
+nav a,
+main a,
+main button {
+  min-height: 24px;
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+@media print {
+  header,
+  footer,
+  .no-print,
+  .skip-link {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .poster-page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .poster-sheet {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  @page {
+    size: auto;
+    margin: 14mm;
+  }
+}

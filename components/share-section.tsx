@@ -49,21 +49,21 @@ export function ShareSection() {
           <button
             type="button"
             onClick={handleNativeShare}
-            className="rounded-full bg-terracotta-deeper px-7 py-3.5 text-center text-base font-semibold text-white shadow-sm hover:bg-[#7E3B1E]"
+            className="min-h-[44px] rounded-xl bg-terracotta-deeper px-7 py-3.5 text-center text-base font-semibold text-white shadow-sm hover:bg-[#7E3B1E]"
           >
             Share This Message
           </button>
           <button
             type="button"
             onClick={() => copyText(getSiteUrl() + "/", "Link copied. Paste it into a message to your temple community.")}
-            className="rounded-full border border-terracotta-deeper bg-white px-7 py-3.5 text-center text-base font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+            className="min-h-[44px] rounded-xl border border-terracotta-deeper bg-white px-7 py-3.5 text-center text-base font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
           >
             Copy Link
           </button>
           <button
             type="button"
             onClick={() => copyText(buildShareText(getSiteUrl()), "Message copied. Paste it into email, text, or a community group.")}
-            className="rounded-full border border-[#D8CCB8] bg-white px-7 py-3.5 text-center text-base font-semibold text-charcoal hover:bg-[#EFE7D8]"
+            className="min-h-[44px] rounded-xl border border-[#D8CCB8] bg-white px-7 py-3.5 text-center text-base font-semibold text-charcoal hover:bg-[#EFE7D8]"
           >
             Copy Message
           </button>

@@ -42,7 +42,7 @@ export function SiteHeader() {
           </Link>
           <Link
             href="/request-sugar"
-            className="rounded-full border border-terracotta-deeper bg-transparent px-5 py-2.5 text-[15px] font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+            className="min-h-[44px] rounded-xl border border-terracotta-deeper bg-transparent px-5 py-2.5 text-[15px] font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
           >
             Request Sugar
           </Link>
@@ -80,7 +80,7 @@ export function SiteHeader() {
             <Link
               href="/request-sugar"
               onClick={() => setOpen(false)}
-              className="mt-2 rounded-full border border-terracotta-deeper px-5 py-3 text-center text-base font-semibold text-terracotta-deeper"
+              className="mt-2 min-h-[44px] rounded-xl border border-terracotta-deeper px-5 py-3 text-center text-base font-semibold text-terracotta-deeper"
             >
               Request Sugar for Your Temple
             </Link>

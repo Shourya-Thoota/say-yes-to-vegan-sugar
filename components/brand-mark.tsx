@@ -31,26 +31,69 @@ export function BrandMark({ className = "h-10 w-10" }: { className?: string }) {
 
 export function TempleHeroIllustration({ className = "w-full max-w-md" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 460 340" role="img" aria-label="Original editorial illustration: a temple arch, a bowl of sugar, and a product label being checked" className={className}>
-      <rect x="16" y="16" width="428" height="308" rx="20" fill="#EFE7D8" />
-      <line x1="48" y1="76" x2="180" y2="76" stroke="#9C4A26" strokeWidth="3" strokeLinecap="round" />
-      <path d="M60 150 v-24 a60 60 0 0 1 120 0 v24" fill="none" stroke="#2D2D2D" strokeWidth="6" strokeLinecap="round" />
-      <rect x="48" y="148" width="144" height="12" rx="6" fill="#2D2D2D" />
-      <path d="M90 220 h120 c0 42 -27 62 -60 62 s-60 -20 -60 -62 z" fill="#fff" stroke="#2D2D2D" strokeWidth="5" strokeLinejoin="round" />
-      <ellipse cx="150" cy="220" rx="60" ry="17" fill="#FBE9DD" stroke="#2D2D2D" strokeWidth="5" />
+    <svg
+      viewBox="0 0 480 360"
+      role="img"
+      aria-label="Editorial illustration: temple arch, bowl of sugar, and a generic package checklist"
+      className={className}
+    >
+      <rect x="8" y="8" width="464" height="344" rx="24" fill="#EFE7D8" />
+      <rect x="8" y="8" width="464" height="344" rx="24" fill="none" stroke="#D8CCB8" strokeWidth="2" />
+      <path d="M52 292 V168 a92 92 0 0 1 184 0 v124" fill="#F5F0E8" stroke="#C9B895" strokeWidth="3" />
+      <path
+        d="M76 292 V176 a68 68 0 0 1 136 0 v116"
+        fill="none"
+        stroke="#C9B895"
+        strokeWidth="2"
+        strokeDasharray="6 8"
+      />
+      <circle cx="144" cy="62" r="7" fill="#9C4A26" />
+      <line x1="112" y1="62" x2="66" y2="62" stroke="#9C4A26" strokeWidth="4" strokeLinecap="round" />
+      <line x1="176" y1="62" x2="222" y2="62" stroke="#9C4A26" strokeWidth="4" strokeLinecap="round" />
+      <rect x="40" y="288" width="208" height="14" rx="7" fill="#2D2D2D" />
+      <path
+        d="M84 232 h120 c0 40 -27 58 -60 58 s-60 -18 -60 -58 z"
+        fill="#fff"
+        stroke="#2D2D2D"
+        strokeWidth="5"
+        strokeLinejoin="round"
+      />
+      <ellipse cx="144" cy="232" rx="60" ry="17" fill="#FBE9DD" stroke="#2D2D2D" strokeWidth="5" />
       <g fill="#E8865A">
-        <circle cx="128" cy="212" r="6" />
-        <circle cx="150" cy="204" r="7" />
-        <circle cx="172" cy="212" r="6" />
+        <circle cx="122" cy="224" r="6" />
+        <circle cx="144" cy="216" r="7" />
+        <circle cx="166" cy="224" r="6" />
       </g>
-      <g fill="none" stroke="#2D2D2D" strokeWidth="5">
-        <rect x="252" y="120" width="156" height="132" rx="12" fill="#fff" />
+      <g fill="#C05E33">
+        <circle cx="133" cy="220" r="3" />
+        <circle cx="155" cy="221" r="3" />
       </g>
-      <text x="272" y="152" fontFamily="Georgia, serif" fontSize="20" fontWeight="bold" fill="#2D2D2D">Check the</text>
-      <text x="272" y="176" fontFamily="Georgia, serif" fontSize="20" fontWeight="bold" fill="#2D2D2D">label</text>
-      <line x1="272" y1="192" x2="388" y2="192" stroke="#E8865A" strokeWidth="4" strokeLinecap="round" />
-      <text x="272" y="216" fontFamily="Calibri, sans-serif" fontSize="16" fill="#4A4238">maker · product</text>
-      <text x="272" y="238" fontFamily="Calibri, sans-serif" fontSize="16" fill="#4A4238">package · date</text>
+      <g>
+        <rect x="268" y="72" width="172" height="216" rx="14" fill="#fff" stroke="#2D2D2D" strokeWidth="4" />
+        <rect x="268" y="72" width="172" height="44" rx="14" fill="#2D2D2D" />
+        <rect x="268" y="100" width="172" height="16" fill="#2D2D2D" />
+        <text x="288" y="100" fontFamily="Georgia, serif" fontSize="19" fontWeight="bold" fill="#fff">
+          Package check
+        </text>
+        <g>
+          <circle cx="292" cy="140" r="11" fill="none" stroke="#9C4A26" strokeWidth="3" />
+          <path d="M287 140 l4 4 l7 -8" fill="none" stroke="#9C4A26" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <text x="312" y="146" fontFamily="Calibri, sans-serif" fontSize="15" fill="#4A4238">maker · product</text>
+        </g>
+        <g>
+          <circle cx="292" cy="178" r="11" fill="none" stroke="#9C4A26" strokeWidth="3" />
+          <path d="M287 178 l4 4 l7 -8" fill="none" stroke="#9C4A26" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <text x="312" y="184" fontFamily="Calibri, sans-serif" fontSize="15" fill="#4A4238">package · date</text>
+        </g>
+        <g>
+          <circle cx="292" cy="216" r="11" fill="none" stroke="#9C4A26" strokeWidth="3" />
+          <path d="M287 216 l4 4 l7 -8" fill="none" stroke="#9C4A26" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <text x="312" y="222" fontFamily="Calibri, sans-serif" fontSize="15" fill="#4A4238">maker reply</text>
+        </g>
+        <text x="288" y="262" fontFamily="Calibri, sans-serif" fontSize="12" fill="#6B5E4F">
+          Generic example — not a real label
+        </text>
+      </g>
     </svg>
   );
 }

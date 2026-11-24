@@ -39,7 +39,7 @@ export function VideoEmbed({ videoId, title, watchUrl }: VideoEmbedProps) {
             aria-label={`Play video: ${title}`}
             className="absolute inset-0 flex h-full w-full items-center justify-center rounded-none focus-visible:outline-none"
           >
-            <span className="flex items-center gap-3 rounded-full bg-charcoal px-7 py-3.5 font-semibold text-white shadow-md hover:bg-black focus-visible:outline focus-visible:outline-3 focus-visible:outline-[#9C4A26]">
+            <span className="flex min-h-[44px] items-center gap-3 rounded-xl bg-charcoal px-7 py-3.5 font-semibold text-white shadow-md hover:bg-black focus-visible:outline focus-visible:outline-3 focus-visible:outline-[#9C4A26]">
               <span aria-hidden="true" className="inline-block h-0 w-0 border-y-8 border-l-[14px] border-y-transparent border-l-white" />
               Play video
             </span>
@@ -66,7 +66,7 @@ export function VideoEmbed({ videoId, title, watchUrl }: VideoEmbedProps) {
               href={watchUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-charcoal px-6 py-3 font-semibold text-white hover:bg-black"
+              className="inline-block min-h-[44px] rounded-xl bg-charcoal px-6 py-3 font-semibold text-white hover:bg-black"
             >
               Watch on YouTube
             </a>

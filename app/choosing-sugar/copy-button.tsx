@@ -17,7 +17,7 @@ export function CopyInquiryButton({ text }: { text: string }) {
           }
           window.setTimeout(() => setStatus("idle"), 3000);
         }}
-        className="rounded-full bg-charcoal px-6 py-2.5 font-semibold text-white hover:bg-black"
+        className="min-h-[44px] rounded-xl bg-charcoal px-6 py-2.5 font-semibold text-white hover:bg-black"
         aria-live="polite"
       >
         {status === "copied" ? "Copied to clipboard" : "Copy Inquiry"}

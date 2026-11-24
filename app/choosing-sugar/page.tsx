@@ -50,6 +50,20 @@ export default function ChoosingSugarPage() {
         </p>
       </div>
 
+      <div className="mt-8 rounded-2xl border border-[#D8CCB8] bg-[#EFE7D8] p-5 sm:p-6">
+        <h2 className="font-heading text-xl font-bold">For the kitchen wall</h2>
+        <p className="mt-2 leading-relaxed text-[#4A4238]">
+          A one-page printable version of this checklist with write-in lines for your purchasing
+          records.
+        </p>
+        <Link
+          href="/poster"
+          className="mt-4 inline-block min-h-[44px] rounded-xl bg-charcoal px-6 py-3 font-semibold text-white hover:bg-black"
+        >
+          Open the printable kitchen guide
+        </Link>
+      </div>
+
       <h2 className="mt-10 text-2xl font-bold sm:text-3xl">Product-checking checklist</h2>
       <ol className="mt-4 divide-y divide-[#E5DCCB] border-y border-[#E5DCCB]">
         {[
@@ -101,7 +115,7 @@ export default function ChoosingSugarPage() {
       <div className="mt-10 text-center">
         <Link
           href="/request-sugar"
-          className="inline-block rounded-full border border-terracotta-deeper px-8 py-3.5 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
+          className="inline-block min-h-[44px] rounded-xl border border-terracotta-deeper px-8 py-3.5 font-semibold text-terracotta-deeper hover:bg-terracotta-soft"
         >
           Request Sugar for Your Temple
         </Link>

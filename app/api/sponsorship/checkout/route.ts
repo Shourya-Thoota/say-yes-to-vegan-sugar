@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { sponsorshipOrders } from "@/lib/schema";
-import { getSponsorshipTier, sanitizeSponsorDisplayName } from "@/lib/sponsorship";
 import { getSiteBaseUrl, isStripeSponsorshipEnabled } from "@/lib/config";
 import { sponsorshipCheckoutSchema, flattenZodErrors } from "@/lib/validation";
-import { generatePublicRef } from "@/lib/reference";
+import { SPONSORSHIP_TERMS_VERSION } from "@/lib/sponsorship";
+import { AttemptConflictError, processSponsorshipCheckout } from "@/lib/sponsorship-checkout";
 import { bucketKey, checkRateLimit } from "@/lib/rate-limit";
 import { reportHandledError } from "@/lib/sentry";
 
 /**
- * Part 3B: create a Stripe Hosted Checkout Session for a fixed tier.
- * Zero-key safe: 503 when Stripe is not enabled. Prices come from the
- * server-side tier table — the client can only send a tier code.
+ * Part 3B (hardened): retry-safe Stripe Hosted Checkout.
+ * Zero-key safe: 503 when Stripe is not fully configured. New checkouts
+ * require ENABLE_STRIPE_SPONSORSHIP=true AND a nonempty STRIPE_SECRET_KEY
+ * AND a nonempty STRIPE_WEBHOOK_SECRET (so paid webhooks can be verified).
+ * Prices come from the server-side tier table — the client sends only a tier
+ * code plus a validated attempt key and accepted terms version.
  */
 export async function POST(req: Request) {
   if (!isStripeSponsorshipEnabled()) {
+    return NextResponse.json(
+      { ok: false, message: "Online sponsorship is not available yet. Please check back soon." },
+      { status: 503 }
+    );
+  }
+  // Full gating: without a webhook secret, paid events could never be
+  // verified, so refuse to create new checkouts.
+  if (!(process.env.STRIPE_WEBHOOK_SECRET ?? "").trim()) {
     return NextResponse.json(
       { ok: false, message: "Online sponsorship is not available yet. Please check back soon." },
       { status: 503 }
@@ -50,10 +60,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, errors: flattenZodErrors(parsed.error) }, { status: 422 });
   }
   const v = parsed.data;
-
-  const tier = getSponsorshipTier(v.tierCode);
-  if (!tier) {
-    return NextResponse.json({ ok: false, errors: { tierCode: "Choose a sponsorship tier." } }, { status: 422 });
+  if ((v.termsVersion ?? "v1") !== SPONSORSHIP_TERMS_VERSION) {
+    return NextResponse.json(
+      { ok: false, errors: { termsVersion: "These sponsorship terms have changed. Please review and accept the current terms." } },
+      { status: 422 }
+    );
   }
 
   const secretKey = (process.env.STRIPE_SECRET_KEY ?? "").trim();
@@ -72,53 +83,22 @@ export async function POST(req: Request) {
     );
   }
 
-  const sponsorDisplayName = sanitizeSponsorDisplayName(v.sponsorDisplayName);
-  const publicRecognitionConsent = v.publicRecognitionConsent === true;
-  const publicRef = generatePublicRef("SUP");
   const baseUrl = getSiteBaseUrl(process.env);
 
   try {
     const { default: Stripe } = await import("stripe");
     const stripe = new Stripe(secretKey);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `Temple Initiative sponsorship — ${tier.label} of vegan sugar`,
-              description: "Supports vegan sugar purchases and deliveries for participating temples. Not a tax-deductible donation.",
-            },
-            unit_amount: tier.amountCents,
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${baseUrl}/sponsor/success?ref=${encodeURIComponent(publicRef)}`,
-      cancel_url: `${baseUrl}/sponsor?cancelled=1`,
-      metadata: { publicRef, tierCode: tier.code },
-      payment_intent_data: { metadata: { publicRef, tierCode: tier.code } },
-    });
-
-    await db.insert(sponsorshipOrders).values({
-      publicRef,
-      stripeCheckoutSessionId: session.id,
-      stripePaymentIntentId: null,
-      tierCode: tier.code,
-      amountCents: tier.amountCents,
-      currency: "usd",
-      estimatedPounds: tier.estimatedPounds,
-      sponsorDisplayName,
-      sponsorEmail: null,
-      publicRecognitionConsent,
-      status: "pending",
-      allocatedRequestId: null,
-    });
-
-    return NextResponse.json({ ok: true, url: session.url, publicRef });
+    const result = await processSponsorshipCheckout(
+      db as never,
+      stripe.checkout.sessions as never,
+      { tierCode: v.tierCode, attemptKey: v.attemptKey.trim(), termsVersion: v.termsVersion },
+      { baseUrl }
+    );
+    return NextResponse.json({ ok: true, url: result.url, publicRef: result.publicRef });
   } catch (err) {
+    if (err instanceof AttemptConflictError) {
+      return NextResponse.json({ ok: false, errors: { _form: err.message } }, { status: 409 });
+    }
     // Never forward Stripe/DB internals to the client.
     console.error("[api/sponsorship/checkout] failed");
     reportHandledError("sponsorship_checkout_create", "/api/sponsorship/checkout");

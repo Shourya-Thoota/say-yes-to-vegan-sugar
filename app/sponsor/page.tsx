@@ -47,9 +47,10 @@ export default async function SponsorPage({
       </p>
 
       {cancelled && (
-        <p role="status" className="mt-6 rounded-2xl border border-[#D8A679] bg-[#FFF8EF] p-5 text-[15px]">
-          Checkout was cancelled before payment — no charge was made. You can choose a tier below
-          whenever you are ready.
+        <p role="status" className="mt-6 break-words rounded-2xl border border-[#D8A679] bg-[#FFF8EF] p-5 text-[15px]">
+          Checkout was closed before completion. If you completed payment, confirmation may still
+          be processing — check email or <Link href="/contact" className="underline">contact us</Link> before
+          trying again. You can choose a tier below whenever you are ready.
         </p>
       )}
 
@@ -66,12 +67,17 @@ export default async function SponsorPage({
             and are <strong>not tax-deductible charitable donations</strong>.
           </li>
           <li>
-            All sponsorships are <strong>final and non-refundable</strong>. If you notice a billing
-            error, please <Link href="/contact" className="underline">contact us</Link> and we will review it promptly.
+            All sponsorships are <strong>final and non-refundable</strong> except for billing errors.
+            If you notice a billing error, please <Link href="/contact" className="underline">contact us</Link> and we will review it promptly.
           </li>
           <li>
-            A contribution does not guarantee it will map to a specific unnamed temple. Public
-            deliveries are recorded in the fulfillment transparency ledger below.
+            Sponsorships support the program generally and are <strong>not promised to map to any
+            specific delivery</strong>. Public deliveries are recorded in the fulfillment transparency
+            ledger below.
+          </li>
+          <li>
+            Tier amounts are <strong>provisional launch amounts</strong> subject to operator review,
+            and pound figures are <strong>approximate estimates</strong>, not guaranteed quantities.
           </li>
         </ul>
       </section>
@@ -147,18 +153,18 @@ export default async function SponsorPage({
               {entries.map((e) => (
                 <li key={e.publicRef} className="rounded-2xl border border-[#E5DCCB] bg-white p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-heading text-xl font-bold">{e.recipientLabel}</h3>
-                      <p className="mt-1 text-[#4A4238]">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-heading text-xl font-bold">{e.recipientLabel}</h3>
+                      <p className="mt-1 break-words text-[#4A4238]">
                         {[e.city, e.state].filter(Boolean).join(", ") || "Location shared with temple"}
                       </p>
                     </div>
-                    <p className="rounded-full bg-cream px-4 py-1.5 font-heading text-lg font-bold">
-                      {e.poundsDelivered.toLocaleString()} lb
+                    <p className="shrink-0 rounded-full bg-cream px-4 py-1.5 font-heading text-lg font-bold">
+                      {e.poundsDelivered.toLocaleString()} lb (est.)
                     </p>
                   </div>
-                  <p className="mt-3 leading-relaxed text-[#4A4238]">{e.sugarProductLabel}</p>
-                  <p className="mt-2 text-sm text-[#6B5E4F]">
+                  <p className="mt-3 break-words leading-relaxed text-[#4A4238]">{e.sugarProductLabel}</p>
+                  <p className="mt-2 break-words text-sm text-[#6B5E4F]">
                     Delivered {formatDate(e.deliveredAt)} · Ref {e.publicRef}
                   </p>
                 </li>

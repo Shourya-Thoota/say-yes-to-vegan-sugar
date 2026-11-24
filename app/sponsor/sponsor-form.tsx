@@ -1,17 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { SPONSORSHIP_TIERS, formatCentsUsd, type SponsorshipTierCode } from "@/lib/sponsorship";
+import { useMemo, useState } from "react";
+import { SPONSORSHIP_TIERS, SPONSORSHIP_TERMS_VERSION, formatCentsUsd, type SponsorshipTierCode } from "@/lib/sponsorship";
 
 const ORDER: SponsorshipTierCode[] = ["bag_10", "bag_25", "bag_50", "bag_100"];
 
+function newAttemptKey(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+    }
+  } catch {
+    // fall through
+  }
+  return `att_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`.slice(0, 32);
+}
+
 export function SponsorForm() {
   const [tierCode, setTierCode] = useState<SponsorshipTierCode>("bag_25");
-  const [displayName, setDisplayName] = useState("");
-  const [recognition, setRecognition] = useState(false);
   const [terms, setTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One stable attempt key per form instance: repeated clicks/retries reuse
+  // the same key so the server returns the same usable Stripe session.
+  const attemptKey = useMemo(() => newAttemptKey(), []);
 
   async function onCheckout(e: React.FormEvent) {
     e.preventDefault();
@@ -27,8 +39,8 @@ export function SponsorForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           tierCode,
-          sponsorDisplayName: displayName,
-          publicRecognitionConsent: recognition,
+          attemptKey,
+          termsVersion: SPONSORSHIP_TERMS_VERSION,
           acknowledgesTerms: true,
         }),
       });
@@ -45,6 +57,8 @@ export function SponsorForm() {
       const first =
         data?.errors?._form ??
         data?.errors?.tierCode ??
+        data?.errors?.attemptKey ??
+        data?.errors?.termsVersion ??
         data?.errors?.acknowledgesTerms ??
         data?.message ??
         "We could not start checkout. Please try again.";
@@ -62,9 +76,13 @@ export function SponsorForm() {
       className="mt-6 rounded-2xl border border-[#E5DCCB] bg-white p-5 sm:p-6"
       aria-labelledby="sponsor-checkout-heading"
     >
-      <h2 id="sponsor-checkout-heading" className="font-heading text-2xl font-bold">
+      <h2 id="sponsor-checkout-heading" className="break-words font-heading text-2xl font-bold">
         Choose your sponsorship
       </h2>
+      <p className="mt-1 break-words text-sm text-[#6B5E4F]">
+        Provisional launch amounts — subject to operator review. Pound figures are approximate
+        delivery estimates, not guaranteed quantities.
+      </p>
       <fieldset className="mt-4">
         <legend className="text-sm font-semibold text-[#4A4238]">Sponsorship amount (fixed tiers)</legend>
         <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Sponsorship tiers">
@@ -78,55 +96,26 @@ export function SponsorForm() {
                   selected ? "border-terracotta-deeper bg-terracotta-soft" : "border-[#D8CCB8] hover:bg-cream"
                 }`}
               >
-                <span className="flex items-center gap-3">
+                <span className="flex min-w-0 items-center gap-3">
                   <input
                     type="radio"
                     name="tier"
                     value={code}
                     checked={selected}
                     onChange={() => setTierCode(code)}
-                    className="h-5 w-5 accent-[#7E3B1E]"
+                    className="h-5 w-5 shrink-0 accent-[#7E3B1E]"
                   />
-                  <span>
-                    <span className="block font-bold">{t.label}</span>
-                    <span className="block text-sm text-[#6B5E4F]">about {t.estimatedPounds} lb of vegan sugar</span>
+                  <span className="min-w-0">
+                    <span className="block break-words font-bold">{t.label}</span>
+                    <span className="block break-words text-sm text-[#6B5E4F]">about {t.estimatedPounds} lb of vegan sugar (estimate)</span>
                   </span>
                 </span>
-                <span className="font-heading text-lg font-bold">{formatCentsUsd(t.amountCents)}</span>
+                <span className="shrink-0 font-heading text-lg font-bold">{formatCentsUsd(t.amountCents)}</span>
               </label>
             );
           })}
         </div>
       </fieldset>
-
-      <div className="mt-4">
-        <label htmlFor="sponsor-name" className="block text-sm font-semibold">
-          Display name <span className="font-normal text-[#6B5E4F]">(optional, shown publicly only with your permission)</span>
-        </label>
-        <input
-          id="sponsor-name"
-          name="sponsorDisplayName"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          maxLength={80}
-          autoComplete="off"
-          placeholder="e.g. The Patel Family"
-          className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5"
-        />
-      </div>
-
-      <div className="mt-3 flex items-start gap-3">
-        <input
-          id="sponsor-recognition"
-          type="checkbox"
-          checked={recognition}
-          onChange={(e) => setRecognition(e.target.checked)}
-          className="mt-1 h-5 w-5 accent-[#7E3B1E]"
-        />
-        <label htmlFor="sponsor-recognition" className="text-[15px] leading-relaxed">
-          You may list my display name in the transparency ledger. Leave unchecked to stay anonymous.
-        </label>
-      </div>
 
       <div className="mt-3 flex items-start gap-3 rounded-xl bg-cream p-4">
         <input
@@ -134,18 +123,20 @@ export function SponsorForm() {
           type="checkbox"
           checked={terms}
           onChange={(e) => setTerms(e.target.checked)}
-          className="mt-1 h-5 w-5 accent-[#7E3B1E]"
+          className="mt-1 h-5 w-5 shrink-0 accent-[#7E3B1E]"
           required
         />
-        <label htmlFor="sponsor-terms" className="text-[15px] leading-relaxed">
+        <label htmlFor="sponsor-terms" className="break-words text-[15px] leading-relaxed">
           I understand this contribution supports Temple Initiative&apos;s vegan-sugar work, is{" "}
           <strong>not a tax-deductible charitable donation</strong>, and is{" "}
           <strong>non-refundable</strong> except for billing errors. I have read the terms below.
+          Sponsorships support the program generally and are not promised to map to any specific
+          delivery.
         </label>
       </div>
 
       {error && (
-        <p role="alert" className="mt-4 rounded-xl border border-[#B3261E] bg-[#FDECEA] p-4 text-[15px]">
+        <p role="alert" className="mt-4 break-words rounded-xl border border-[#B3261E] bg-[#FDECEA] p-4 text-[15px]">
           {error}
         </p>
       )}
@@ -157,7 +148,7 @@ export function SponsorForm() {
       >
         {busy ? "Starting secure checkout…" : "Continue to Stripe Checkout"}
       </button>
-      <p className="mt-2 text-sm text-[#6B5E4F]">
+      <p className="mt-2 break-words text-sm text-[#6B5E4F]">
         Secure payment is handled by Stripe. We never see or store your card details.
       </p>
     </form>

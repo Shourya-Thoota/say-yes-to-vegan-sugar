@@ -1,14 +1,37 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { sponsorshipOrders } from "@/lib/schema";
+import { UnknownOrderError, processStripeEvent } from "@/lib/stripe-webhook";
 import { reportHandledError } from "@/lib/sentry";
 
 /**
- * Part 3B: idempotent Stripe webhook receiver.
+ * Part 3B (hardened) idempotent Stripe webhook receiver.
  * - 503 when STRIPE_WEBHOOK_SECRET is missing (zero-key safe).
+ * - Webhook processing stays available when new checkouts are disabled, as
+ *   long as the webhook secret (+ secret key) is present, so in-flight paid
+ *   sessions can still settle.
  * - 400 when the signature is missing or verification fails (fail-closed).
- * - 200 { received: true } for verified events, including replays.
+ * - 200 { received: true } for verified events, including replays and
+ *   deliberately ignored events (unpaid sessions, amount mismatches,
+ *   terminal-state guards, unhandled types).
+ * - 500 { retryable: true } when a RELEVANT payment event references an
+ *   unknown order or when processing fails: the event is NOT acknowledged as
+ *   processed (no event row is persisted), so Stripe automatic retries (up to
+ *   ~3 days, exponential backoff) and manual Dashboard resend remain possible.
+ *   Reconciliation: find the session/payment in the Stripe Dashboard via the
+ *   metadata publicRef/tierCode/attemptKey, verify the order row, then resend
+ *   the event (Dashboard -> Developers -> Webhooks -> Resend, up to 15 days;
+ *   or `stripe events resend <evt_id>` up to 30 days).
+ *
+ * Event behavior per Stripe docs (https://docs.stripe.com/checkout/fulfillment,
+ * https://docs.stripe.com/api/events/types, https://docs.stripe.com/webhooks):
+ * - checkout.session.completed fires on completion, but funds may not be
+ *   captured for delayed methods; payment_status + amount_total + currency
+ *   must be verified (see lib/stripe-webhook.ts).
+ * - Delayed methods settle via checkout.session.async_payment_succeeded /
+ *   async_payment_failed. This release creates card-only sessions, but the
+ *   handler supports those async events explicitly.
+ * - charge.refunded fires for full AND partial refunds; partial refunds must
+ *   not be labeled as full refunds.
  */
 export async function POST(req: Request) {
   const webhookSecret = (process.env.STRIPE_WEBHOOK_SECRET ?? "").trim();
@@ -37,7 +60,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let event: { type: string; data: { object: Record<string, unknown> } };
+  let event: { id: string; type: string; data: { object: Record<string, unknown> } };
   try {
     const { default: Stripe } = await import("stripe");
     const stripe = new Stripe(secretKey);
@@ -53,84 +76,40 @@ export async function POST(req: Request) {
   }
 
   try {
-    const type = event.type;
-    const obj = event.data?.object ?? {};
-
-    if (type === "checkout.session.completed") {
-      const sessionId = obj["id"] as string | undefined;
-      if (!sessionId) return NextResponse.json({ received: true });
-      const paymentIntent = (obj["payment_intent"] as string | null | undefined) ?? null;
-      const customerEmail =
-        ((obj["customer_details"] as { email?: unknown } | null | undefined)?.email as string | undefined) ??
-        (obj["customer_email"] as string | undefined) ??
-        null;
-      const rows = await db
-        .select()
-        .from(sponsorshipOrders)
-        .where(eq(sponsorshipOrders.stripeCheckoutSessionId, sessionId))
-        .limit(1);
-      if (rows.length === 0) return NextResponse.json({ received: true });
-      const row = rows[0];
-      // Idempotent: replaying a completed event must not change a paid row.
-      if (row.status === "paid") return NextResponse.json({ received: true });
-      await db
-        .update(sponsorshipOrders)
-        .set({
-          status: "paid",
-          paidAt: row.paidAt ?? new Date(),
-          stripePaymentIntentId: typeof paymentIntent === "string" ? paymentIntent : row.stripePaymentIntentId,
-          sponsorEmail:
-            typeof customerEmail === "string" && customerEmail.includes("@")
-              ? customerEmail.trim().toLowerCase()
-              : row.sponsorEmail,
-          updatedAt: new Date(),
-        })
-        .where(eq(sponsorshipOrders.id, row.id));
+    const outcome = await processStripeEvent(db as never, {
+      id: String(event.id ?? ""),
+      type: String(event.type ?? ""),
+      data: { object: (event.data?.object ?? {}) as Record<string, unknown> },
+    });
+    if (outcome.action === "duplicate" || outcome.action === "ignored") {
       return NextResponse.json({ received: true });
     }
-
-    if (type === "checkout.session.expired") {
-      const sessionId = obj["id"] as string | undefined;
-      if (!sessionId) return NextResponse.json({ received: true });
-      const rows = await db
-        .select()
-        .from(sponsorshipOrders)
-        .where(eq(sponsorshipOrders.stripeCheckoutSessionId, sessionId))
-        .limit(1);
-      if (rows.length === 0) return NextResponse.json({ received: true });
-      const row = rows[0];
-      // Only pending rows expire; never overwrite paid/refunded.
-      if (row.status !== "pending") return NextResponse.json({ received: true });
-      await db
-        .update(sponsorshipOrders)
-        .set({ status: "expired", updatedAt: new Date() })
-        .where(eq(sponsorshipOrders.id, row.id));
-      return NextResponse.json({ received: true });
-    }
-
-    if (type === "charge.refunded") {
-      const charge = obj as Record<string, unknown>;
-      const pi = charge["payment_intent"] as string | undefined;
-      if (!pi) return NextResponse.json({ received: true });
-      const rows = await db
-        .select()
-        .from(sponsorshipOrders)
-        .where(eq(sponsorshipOrders.stripePaymentIntentId, pi))
-        .limit(1);
-      if (rows.length === 0) return NextResponse.json({ received: true });
-      const row = rows[0];
-      if (row.status === "refunded") return NextResponse.json({ received: true });
-      await db
-        .update(sponsorshipOrders)
-        .set({ status: "refunded", updatedAt: new Date() })
-        .where(eq(sponsorshipOrders.id, row.id));
-      return NextResponse.json({ received: true });
-    }
-
-    // Unknown verified event types are acknowledged without action.
     return NextResponse.json({ received: true });
-  } catch {
+  } catch (err) {
+    if (err instanceof UnknownOrderError) {
+      // Do NOT acknowledge: no event row was persisted, so this stays
+      // retryable. Operator reconciles via Dashboard + resend.
+      reportHandledError("stripe_webhook_receive", "/api/webhooks/stripe");
+      return NextResponse.json(
+        {
+          ok: false,
+          retryable: true,
+          message:
+            "Payment event received for an unknown order; it was not processed. It will be retried automatically — no action is needed unless retries keep failing, in which case reconcile the session in the Stripe Dashboard (metadata publicRef/tierCode) and resend the event.",
+        },
+        { status: 500 }
+      );
+    }
+    // Unique-violation on the event id under concurrency means another
+    // worker already processed it: acknowledge as received.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/duplicate|unique/i.test(msg)) {
+      return NextResponse.json({ received: true });
+    }
     reportHandledError("stripe_webhook_receive", "/api/webhooks/stripe");
-    return NextResponse.json({ ok: false, message: "Webhook processing failed." }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, retryable: true, message: "Webhook processing failed; the event was not processed and will be retried." },
+      { status: 500 }
+    );
   }
 }

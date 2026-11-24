@@ -1,6 +1,14 @@
 // Part 3B: fixed server-side sponsorship tiers. Prices are NEVER accepted
 // from the client — the tier code is the only client input, and the amount
 // is resolved here on the server.
+//
+// PROVISIONAL LAUNCH AMOUNTS: these tier prices are operator-configured
+// launch values and remain subject to operator review. They are estimates
+// of sponsorship levels — pound figures are approximate delivery estimates,
+// never guaranteed quantities. A sponsorship does not promise that a specific
+// delivery will map to it.
+
+export const SPONSORSHIP_TERMS_VERSION = "v1";
 export const SPONSORSHIP_TIERS = {
   bag_10: { code: "bag_10", label: "10 lb bag", amountCents: 1500, estimatedPounds: 10 },
   bag_25: { code: "bag_25", label: "25 lb bag", amountCents: 3500, estimatedPounds: 25 },
@@ -23,6 +31,8 @@ export function isSponsorshipTierCode(code: unknown): code is SponsorshipTierCod
 }
 
 export const SPONSOR_DISPLAY_NAME_MAX_LENGTH = 80;
+
+export const SPONSORSHIP_ATTEMPT_KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
 /**
  * Plain-text sponsor display name. Collapses whitespace/newlines, trims,

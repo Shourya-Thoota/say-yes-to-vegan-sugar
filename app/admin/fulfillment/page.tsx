@@ -2,9 +2,10 @@ import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { fulfillmentLedger, sponsorshipOrders } from "@/lib/schema";
+import { donationRequests, fulfillmentLedger, sponsorshipOrders } from "@/lib/schema";
 import { createFulfillmentEntry, setFulfillmentVisibility } from "@/lib/admin-actions";
 import { SPONSORSHIP_TIERS, formatCentsUsd } from "@/lib/sponsorship";
+import { newIdempotencyKey } from "@/lib/reference";
 
 export const metadata = { title: "Fulfillment Ledger", robots: { index: false, follow: false } };
 
@@ -33,6 +34,20 @@ export default async function AdminFulfillmentPage() {
 
   const orders = await db.select().from(sponsorshipOrders).orderBy(desc(sponsorshipOrders.createdAt)).limit(50);
   const entries = await db.select().from(fulfillmentLedger).orderBy(desc(fulfillmentLedger.deliveredAt)).limit(100);
+  const requests = await db
+    .select({
+      id: donationRequests.id,
+      templeName: donationRequests.templeName,
+      city: donationRequests.city,
+      state: donationRequests.state,
+      publicRef: donationRequests.publicRef,
+      publicListingConsent: donationRequests.publicListingConsent,
+      publicListingStatus: donationRequests.publicListingStatus,
+    })
+    .from(donationRequests)
+    .orderBy(desc(donationRequests.createdAt))
+    .limit(200);
+  const submissionKey = newIdempotencyKey();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -61,7 +76,6 @@ export default async function AdminFulfillmentPage() {
                   <th className="px-4 py-3">Tier</th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Recognition</th>
                   <th className="px-4 py-3">Date</th>
                 </tr>
               </thead>
@@ -78,7 +92,6 @@ export default async function AdminFulfillmentPage() {
                           {o.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{o.publicRecognitionConsent ? "Consented" : "Anonymous"}</td>
                       <td className="px-4 py-3 text-[#6B5E4F]">{new Date(o.createdAt).toLocaleDateString()}</td>
                     </tr>
                   );
@@ -94,38 +107,53 @@ export default async function AdminFulfillmentPage() {
           Record a delivery
         </h2>
         <p className="mt-1 text-sm text-[#6B5E4F]">
-          Only recipient label, city, state, weight, product, and date ever appear publicly — and
-          only when “publicly visible” is on.
+          Temple names are resolved server-side from the linked request and shown publicly only while
+          that temple&apos;s listing consent is on and its status is published. Otherwise the ledger
+          shows an anonymized &ldquo;Participating Temple (STATE)&rdquo; with no city. Unlinked
+          deliveries are always anonymized. Only weight, product, and date ever appear publicly — and
+          only when &ldquo;publicly visible&rdquo; is on. The checkbox defaults to off.
         </p>
         <form action={createFulfillmentEntry} className="mt-4 grid gap-4 sm:grid-cols-2">
+          <input type="hidden" name="idempotencyKey" value={submissionKey} />
           <div className="sm:col-span-2">
-            <label htmlFor="f-recipient" className="block text-sm font-semibold">
-              Recipient label *
+            <label htmlFor="f-request" className="block text-sm font-semibold">
+              Linked temple request (required for named listing) *
             </label>
-            <input
-              id="f-recipient"
-              name="recipientLabel"
-              required
-              maxLength={200}
-              placeholder="e.g. Houston Temple Kitchen or Participating Temple (TX)"
-              className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5"
-            />
+            <select id="f-request" name="donationRequestId" defaultValue="" className="mt-1 w-full rounded-xl border border-[#D8CCB8] bg-white px-4 py-2.5">
+              <option value="">No linked request — record anonymously</option>
+              {requests.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.templeName} — {r.city}, {r.state} ({r.publicRef}
+                  {r.publicListingConsent && r.publicListingStatus === "published" ? ", listed" : ", private"})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-[#6B5E4F]">
+              Choose a request to link this delivery. Leave empty for an anonymized entry.
+            </p>
           </div>
-          <div>
-            <label htmlFor="f-city" className="block text-sm font-semibold">
-              City
+          <div className="sm:col-span-2">
+            <label htmlFor="f-order" className="block text-sm font-semibold">
+              Linked sponsorship order (optional)
             </label>
-            <input id="f-city" name="city" maxLength={120} className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5" />
+            <select id="f-order" name="sponsorshipOrderId" defaultValue="" className="mt-1 w-full rounded-xl border border-[#D8CCB8] bg-white px-4 py-2.5">
+              <option value="">No linked order</option>
+              {orders.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.publicRef} — {o.tierCode} — {o.status}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label htmlFor="f-state" className="block text-sm font-semibold">
-              State (2 letters)
+              State (2 letters, for anonymized label)
             </label>
             <input id="f-state" name="state" maxLength={2} placeholder="TX" className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5" />
           </div>
           <div>
             <label htmlFor="f-pounds" className="block text-sm font-semibold">
-              Pounds delivered *
+              Pounds delivered (estimate record) *
             </label>
             <input id="f-pounds" name="poundsDelivered" required inputMode="numeric" placeholder="50" className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5" />
           </div>
@@ -155,9 +183,9 @@ export default async function AdminFulfillmentPage() {
             <textarea id="f-notes" name="internalNotes" rows={2} maxLength={2000} className="mt-1 w-full rounded-xl border border-[#D8CCB8] px-4 py-2.5" />
           </div>
           <div className="flex items-center gap-3">
-            <input id="f-visible" name="publicVisible" type="checkbox" value="true" defaultChecked className="h-5 w-5 accent-[#7E3B1E]" />
-            <label htmlFor="f-visible" className="text-[15px]">
-              Publicly visible in the transparency ledger
+            <input id="f-visible" name="publicVisible" type="checkbox" value="true" className="h-5 w-5 accent-[#7E3B1E]" />
+            <label htmlFor="f-visible" className="break-words text-[15px]">
+              Publicly visible in the transparency ledger (off by default)
             </label>
           </div>
           <div>
@@ -181,12 +209,12 @@ export default async function AdminFulfillmentPage() {
             {entries.map((e) => (
               <li key={e.id} className="rounded-2xl border border-[#E5DCCB] bg-white p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold">
+                  <div className="min-w-0">
+                    <p className="break-words font-bold">
                       {e.recipientLabel}{" "}
                       <span className="font-mono text-sm font-normal text-[#6B5E4F]">{e.publicRef}</span>
                     </p>
-                    <p className="mt-1 text-[15px] text-[#4A4238]">
+                    <p className="mt-1 break-words text-[15px] text-[#4A4238]">
                       {[e.city, e.state].filter(Boolean).join(", ") || "—"} · {e.poundsDelivered} lb ·{" "}
                       {e.sugarProductLabel} · {new Date(e.deliveredAt).toLocaleDateString()}
                     </p>

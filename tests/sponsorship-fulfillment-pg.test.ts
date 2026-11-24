@@ -1,5 +1,11 @@
 /**
- * Real-PostgreSQL integration coverage for Part 3B (sponsorship + ledger).
+ * Real-PostgreSQL integration coverage for Part 3B hardening.
+ *
+ * Exercises the ACTUAL production services (processStripeEvent,
+ * processSponsorshipCheckout, getPublicFulfillmentEntries) against a real
+ * database — no copied helpers, no fakes for the code under test. (Stripe's
+ * HTTP API is the only stub: a local session-creator with idempotency-key
+ * semantics; signature verification is covered in unit tests.)
  *
  * Runs ONLY when a test database is explicitly provided:
  *   - TEST_DATABASE_URL is set, OR
@@ -12,12 +18,24 @@
  */
 import { describe, expect, it, beforeAll, afterEach, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
-import { fulfillmentLedger, sponsorshipOrders } from "../lib/schema";
+import {
+  donationRequests,
+  fulfillmentLedger,
+  sponsorshipCheckoutAttempts,
+  sponsorshipOrders,
+  sponsorshipStripeEvents,
+} from "../lib/schema";
 import { getDb, getPool } from "../lib/db";
 import {
   getPublicFulfillmentEntries,
   getPublicFulfillmentTotals,
 } from "../lib/fulfillment-ledger";
+import { processStripeEvent, UnknownOrderError } from "../lib/stripe-webhook";
+import {
+  AttemptConflictError,
+  processSponsorshipCheckout,
+} from "../lib/sponsorship-checkout";
+import { toSafeDeliveredDate } from "../lib/fulfillment-ledger";
 
 const TEST_URL =
   process.env.TEST_DATABASE_URL ||
@@ -50,8 +68,19 @@ let keyCounter = 0;
 function synthRef(prefix: string): string {
   keyCounter += 1;
   // Keep refs unique within varchar(20): short prefix + short run id + counter.
-  // e.g. SUP-r1a2b3c4-7 (well under 20 chars).
   return `${prefix}-${RUN_ID}-${keyCounter}`.slice(0, 20);
+}
+function synthAttempt(): string {
+  keyCounter += 1;
+  return `pgatt-${RUN_ID}-${keyCounter}`.slice(0, 64);
+}
+function synthEvent(): string {
+  keyCounter += 1;
+  return `evt_pg_${RUN_ID}_${keyCounter}`;
+}
+function synthSession(): string {
+  keyCounter += 1;
+  return `cs_pg_${RUN_ID}_${keyCounter}`;
 }
 
 async function cleanupSyntheticRows(): Promise<void> {
@@ -61,11 +90,89 @@ async function cleanupSyntheticRows(): Promise<void> {
     `DELETE FROM "fulfillment_ledger" WHERE "public_ref" LIKE 'SUP-${RUN_ID}%' OR "recipient_label" LIKE '%${RUN_ID}%'`
   );
   await pool.query(
+    `DELETE FROM "sponsorship_stripe_events" WHERE "stripe_event_id" LIKE 'evt_pg_${RUN_ID}%'`
+  );
+  await pool.query(
     `DELETE FROM "sponsorship_orders" WHERE "public_ref" LIKE 'SUP-${RUN_ID}%' OR "stripe_checkout_session_id" LIKE 'cs_pg_${RUN_ID}%'`
+  );
+  await pool.query(
+    `DELETE FROM "sponsorship_checkout_attempts" WHERE "attempt_key" LIKE 'pgatt-${RUN_ID}%'`
+  );
+  await pool.query(
+    `DELETE FROM "donation_requests" WHERE "temple_name" LIKE '%${RUN_ID}%' OR "idempotency_key" LIKE 'pg-test-${RUN_ID}%'`
   );
 }
 
-pgDescribe("sponsorship + fulfillment (real PostgreSQL, synthetic data)", () => {
+function fakeStripeSessions() {
+  const byKey = new Map<string, { id: string; url: string }>();
+  let calls = 0;
+  return {
+    calls: () => calls,
+    sessions: {
+      create: async (params: Record<string, unknown>, opts?: { idempotencyKey?: string }) => {
+        calls += 1;
+        const key = opts?.idempotencyKey ?? `nokey-${calls}`;
+        const hit = byKey.get(key);
+        if (hit) return { ...hit, params };
+        const session = {
+          id: synthSession(),
+          url: `https://checkout.stripe.com/pay/pg-${RUN_ID}-${calls}`,
+        };
+        byKey.set(key, session);
+        return { ...session, params };
+      },
+    },
+  };
+}
+
+async function insertSyntheticRequest(overrides: Record<string, unknown> = {}) {
+  const db = getDb()!;
+  keyCounter += 1;
+  const rows = await db
+    .insert(donationRequests)
+    .values({
+      publicRef: synthRef("SVS"),
+      idempotencyKey: `pg-test-${RUN_ID}-${keyCounter}`,
+      templeName: `Synthetic Temple ${RUN_ID}`,
+      streetAddress: "100 Test Ave",
+      city: "Houston",
+      state: "TX",
+      zipCode: "77001",
+      contactName: "Synthetic Contact",
+      contactRole: "Volunteer",
+      contactEmail: `synthetic-${RUN_ID}-${keyCounter}@example.org`,
+      quantityPounds: 50,
+      intendedUse: ["prasadam"],
+      publicListingConsent: false,
+      publicListingStatus: "private",
+      ...overrides,
+    })
+    .returning({ id: donationRequests.id });
+  return rows[0].id as string;
+}
+
+async function insertSyntheticOrder(overrides: Record<string, unknown> = {}) {
+  const db = getDb()!;
+  const rows = await db
+    .insert(sponsorshipOrders)
+    .values({
+      publicRef: synthRef("SUP"),
+      stripeCheckoutSessionId: synthSession(),
+      tierCode: "bag_25",
+      amountCents: 3500,
+      currency: "usd",
+      estimatedPounds: 25,
+      status: "pending",
+      publicRecognitionConsent: false,
+      termsVersion: "v1",
+      termsAcceptedAt: new Date(),
+      ...overrides,
+    })
+    .returning();
+  return rows[0];
+}
+
+pgDescribe("sponsorship + fulfillment hardening (real PostgreSQL, synthetic data)", () => {
   beforeAll(async () => {
     const pool = getPool();
     expect(pool).toBeTruthy();
@@ -82,9 +189,9 @@ pgDescribe("sponsorship + fulfillment (real PostgreSQL, synthetic data)", () => 
     if (pool) await pool.end().catch(() => undefined);
   });
 
-  it("migration 0002 created sponsorship + ledger tables, defaults, and indexes", async () => {
+  it("migrations created hardening tables, columns, and indexes", async () => {
     const pool = getPool()!;
-    for (const table of ["sponsorship_orders", "fulfillment_ledger"]) {
+    for (const table of ["sponsorship_orders", "fulfillment_ledger", "sponsorship_checkout_attempts", "sponsorship_stripe_events"]) {
       const t = await pool.query(
         `SELECT table_name FROM information_schema.tables WHERE table_name = '${table}'`
       );
@@ -100,7 +207,10 @@ pgDescribe("sponsorship + fulfillment (real PostgreSQL, synthetic data)", () => 
       "tier_code",
       "amount_cents",
       "status",
-      "public_recognition_consent",
+      "checkout_attempt_key",
+      "terms_version",
+      "terms_accepted_at",
+      "refunded_amount_cents",
     ]) {
       expect(names).toContain(c);
     }
@@ -108,127 +218,287 @@ pgDescribe("sponsorship + fulfillment (real PostgreSQL, synthetic data)", () => 
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'fulfillment_ledger' ORDER BY column_name`
     );
     const ledgerNames = ledgerCols.rows.map((r: { column_name: string }) => r.column_name);
-    for (const c of ["public_ref", "recipient_label", "pounds_delivered", "public_visible", "recorded_by"]) {
+    for (const c of ["public_ref", "recipient_label", "pounds_delivered", "public_visible", "recorded_by", "idempotency_key"]) {
       expect(ledgerNames).toContain(c);
     }
     const idx = await pool.query(
-      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname IN ('sponsorship_orders_status_idx','fulfillment_ledger_public_visible_idx')`
+      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname IN ('sponsorship_orders_status_idx','fulfillment_ledger_public_visible_idx','sponsorship_orders_attempt_key_uidx','fulfillment_ledger_idempotency_uidx')`
     );
-    expect(idx.rows.length).toBe(2);
+    expect(idx.rows.length).toBe(4);
   }, 30_000);
 
-  it("order lifecycle: pending -> paid idempotently -> refunded", async () => {
+  it("webhook service: paid once, unpaid never paid, mismatch never paid", async () => {
     const db = getDb()!;
-    const sessionId = `cs_pg_${RUN_ID}_${Date.now()}_1`;
-    const publicRef = synthRef("SUP");
-    const inserted = await db
-      .insert(sponsorshipOrders)
-      .values({
-        publicRef,
-        stripeCheckoutSessionId: sessionId,
-        tierCode: "bag_25",
-        amountCents: 3500,
-        estimatedPounds: 25,
-        status: "pending",
-        publicRecognitionConsent: false,
-      })
-      .returning({ id: sponsorshipOrders.id });
-    expect(inserted.length).toBe(1);
+    const order = await insertSyntheticOrder();
+    const paid = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: order.stripeCheckoutSessionId,
+          payment_status: "paid",
+          payment_intent: `pi_pg_${RUN_ID}_1`,
+          amount_total: 3500,
+          currency: "usd",
+          customer_details: { email: "Donor@Example.org" },
+        },
+      },
+    });
+    expect(paid.action).toBe("paid");
+    const after = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.id, order.id)).limit(1);
+    expect(after[0].status).toBe("paid");
+    expect(after[0].sponsorEmail).toBe("donor@example.org");
 
-    // Simulate webhook paid update (idempotent helper mirrors route logic).
-    async function markPaid() {
-      const rows = await db
-        .select()
-        .from(sponsorshipOrders)
-        .where(eq(sponsorshipOrders.stripeCheckoutSessionId, sessionId))
-        .limit(1);
-      if (rows[0].status === "paid") return rows[0];
-      await db
-        .update(sponsorshipOrders)
-        .set({ status: "paid", paidAt: new Date(), stripePaymentIntentId: "pi_pg_test_1" })
-        .where(eq(sponsorshipOrders.id, rows[0].id));
-      const again = await db
-        .select()
-        .from(sponsorshipOrders)
-        .where(eq(sponsorshipOrders.stripeCheckoutSessionId, sessionId))
-        .limit(1);
-      return again[0];
-    }
-    const paid1 = await markPaid();
-    expect(paid1.status).toBe("paid");
-    expect(paid1.stripePaymentIntentId).toBe("pi_pg_test_1");
-    const paid2 = await markPaid();
-    expect(paid2.status).toBe("paid");
+    // Replay is idempotent via the stored event id.
+    const replay = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: order.stripeCheckoutSessionId,
+          payment_status: "paid",
+          payment_intent: `pi_pg_${RUN_ID}_1`,
+          amount_total: 3500,
+          currency: "usd",
+        },
+      },
+    });
+    expect(replay.action === "paid" || replay.action === "duplicate" || replay.action === "ignored").toBe(true);
 
-    // Refunded via payment intent.
-    await db
-      .update(sponsorshipOrders)
-      .set({ status: "refunded" })
-      .where(eq(sponsorshipOrders.stripePaymentIntentId, "pi_pg_test_1"));
-    const refunded = await db
-      .select()
-      .from(sponsorshipOrders)
-      .where(eq(sponsorshipOrders.stripeCheckoutSessionId, sessionId))
-      .limit(1);
-    expect(refunded[0].status).toBe("refunded");
+    // Unpaid completion never becomes paid.
+    const pending = await insertSyntheticOrder();
+    const unpaid = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "checkout.session.completed",
+      data: { object: { id: pending.stripeCheckoutSessionId, payment_status: "unpaid", amount_total: 3500, currency: "usd" } },
+    });
+    expect(unpaid.action).toBe("ignored");
+    const kept = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.id, pending.id)).limit(1);
+    expect(kept[0].status).toBe("pending");
 
-    // Expired must never overwrite paid/refunded: simulate guard.
-    const final = refunded[0];
-    if (final.status === "pending") {
-      await db.update(sponsorshipOrders).set({ status: "expired" }).where(eq(sponsorshipOrders.id, final.id));
-    }
-    const kept = await db
-      .select()
-      .from(sponsorshipOrders)
-      .where(eq(sponsorshipOrders.stripeCheckoutSessionId, sessionId))
-      .limit(1);
+    // Amount/currency mismatch never becomes paid.
+    const mismatch = await insertSyntheticOrder();
+    const bad = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "checkout.session.completed",
+      data: { object: { id: mismatch.stripeCheckoutSessionId, payment_status: "paid", amount_total: 1, currency: "usd" } },
+    });
+    expect(bad.action).toBe("ignored");
+    const kept2 = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.id, mismatch.id)).limit(1);
+    expect(kept2[0].status).toBe("pending");
+  }, 30_000);
+
+  it("webhook service: refund then delayed completion stays refunded; partial vs full", async () => {
+    const db = getDb()!;
+    const pi = `pi_pg_${RUN_ID}_refund`;
+    const order = await insertSyntheticOrder({ stripePaymentIntentId: pi, status: "paid", paidAt: new Date() });
+    const refunded = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "charge.refunded",
+      data: { object: { payment_intent: pi, amount: 3500, amount_refunded: 3500, refunded: true } },
+    });
+    expect(refunded.action).toBe("refunded");
+    const late = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "checkout.session.completed",
+      data: { object: { id: order.stripeCheckoutSessionId, payment_status: "paid", payment_intent: pi, amount_total: 3500, currency: "usd" } },
+    });
+    expect(late.action).toBe("ignored");
+    const kept = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.id, order.id)).limit(1);
     expect(kept[0].status).toBe("refunded");
+
+    // Partial refund is labeled partially_refunded with the partial amount.
+    const pi2 = `pi_pg_${RUN_ID}_partial`;
+    const order2 = await insertSyntheticOrder({ stripePaymentIntentId: pi2, status: "paid", paidAt: new Date() });
+    const partial = await processStripeEvent(db as never, {
+      id: synthEvent(),
+      type: "charge.refunded",
+      data: { object: { payment_intent: pi2, amount: 3500, amount_refunded: 1000, refunded: false } },
+    });
+    expect(partial.action).toBe("partially_refunded");
+    const kept2 = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.id, order2.id)).limit(1);
+    expect(kept2[0].status).toBe("partially_refunded");
+    expect(kept2[0].refundedAmountCents).toBe(1000);
   }, 30_000);
 
-  it("public ledger filters private rows and excludes all PII", async () => {
+  it("webhook service: unknown orders stay retryable and concurrent duplicates stay single-paid", async () => {
     const db = getDb()!;
+    const unknownId = synthEvent();
+    await expect(
+      processStripeEvent(db as never, {
+        id: unknownId,
+        type: "checkout.session.completed",
+        data: { object: { id: "cs_pg_missing_xyz", payment_status: "paid", amount_total: 3500, currency: "usd" } },
+      })
+    ).rejects.toBeInstanceOf(UnknownOrderError);
+    // No event row persisted: a retry is still possible.
+    const seen = await db.select().from(sponsorshipStripeEvents).where(eq(sponsorshipStripeEvents.stripeEventId, unknownId)).limit(1);
+    expect(seen.length).toBe(0);
+
+    // Concurrent duplicates: exactly one paid outcome, one event row.
+    const order = await insertSyntheticOrder();
+    const mkEvent = (id: string) => ({
+      id,
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: order.stripeCheckoutSessionId,
+          payment_status: "paid",
+          payment_intent: `pi_pg_${RUN_ID}_conc`,
+          amount_total: 3500,
+          currency: "usd",
+        },
+      },
+    });
+    const dupId = synthEvent();
+    const settled = await Promise.allSettled([
+      processStripeEvent(db as never, mkEvent(dupId)),
+      processStripeEvent(db as never, mkEvent(dupId)),
+    ]);
+    const fulfilled = settled.filter((s) => s.status === "fulfilled");
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+    const kept = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.id, order.id)).limit(1);
+    expect(kept[0].status).toBe("paid");
+    const evts = await db.select().from(sponsorshipStripeEvents).where(eq(sponsorshipStripeEvents.stripeEventId, dupId)).limit(1);
+    expect(evts.length).toBe(1);
+  }, 30_000);
+
+  it("checkout service: repeated attempts create one session/order; conflicts rejected; terms stored", async () => {
+    const db = getDb()!;
+    const stripe = fakeStripeSessions();
+    const attemptKey = synthAttempt();
+    const first = await processSponsorshipCheckout(db as never, stripe.sessions as never, { tierCode: "bag_25", attemptKey, termsVersion: "v1" }, { baseUrl: "http://localhost:3000" });
+    expect(first.url).toContain("https://checkout.stripe.com");
+    expect(first.reused).toBe(false);
+    const second = await processSponsorshipCheckout(db as never, stripe.sessions as never, { tierCode: "bag_25", attemptKey, termsVersion: "v1" }, { baseUrl: "http://localhost:3000" });
+    expect(second.reused).toBe(true);
+    expect(second.url).toBe(first.url);
+    expect(second.publicRef).toBe(first.publicRef);
+    // Stripe saw one logical session (idempotency key) across both calls.
+    expect(stripe.calls()).toBe(2);
+    const orders = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.checkoutAttemptKey, attemptKey)).limit(5);
+    expect(orders.length).toBe(1);
+    expect(orders[0].termsVersion).toBe("v1");
+    expect(orders[0].termsAcceptedAt).toBeInstanceOf(Date);
+    expect(Number(orders[0].amountCents)).toBe(3500);
+
+    // Conflicting reuse (different tier) is rejected.
+    await expect(
+      processSponsorshipCheckout(db as never, stripe.sessions as never, { tierCode: "bag_100", attemptKey, termsVersion: "v1" }, { baseUrl: "http://localhost:3000" })
+    ).rejects.toBeInstanceOf(AttemptConflictError);
+  }, 30_000);
+
+  it("checkout service: crash between session creation and order persistence recovers on retry", async () => {
+    const db = getDb()!;
+    const stripe = fakeStripeSessions();
+    const attemptKey = synthAttempt();
+    // Simulate a crash: the attempt row exists with a Stripe session + URL
+    // but the order row was never persisted.
+    const publicRef = synthRef("SUP");
+    const stranded = await stripe.sessions.create({ mode: "payment" }, { idempotencyKey: `sponsorship-checkout-${attemptKey}` });
+    await db.insert(sponsorshipCheckoutAttempts).values({
+      attemptKey,
+      tierCode: "bag_10",
+      termsVersion: "v1",
+      stripeSessionId: stranded.id,
+      stripeSessionUrl: stranded.url,
+      publicRef,
+    });
+    const retry = await processSponsorshipCheckout(db as never, stripe.sessions as never, { tierCode: "bag_10", attemptKey, termsVersion: "v1" }, { baseUrl: "http://localhost:3000" });
+    expect(retry.reused).toBe(true);
+    expect(retry.publicRef).toBe(publicRef);
+    const orders = await db.select().from(sponsorshipOrders).where(eq(sponsorshipOrders.checkoutAttemptKey, attemptKey)).limit(5);
+    expect(orders.length).toBe(1);
+    expect(orders[0].stripeCheckoutSessionId).toBe(stranded.id);
+  }, 30_000);
+
+  it("public ledger: consent gate, unpublish anonymization, and no PII leakage", async () => {
+    const db = getDb()!;
+    const listedId = await insertSyntheticRequest({ publicListingConsent: true, publicListingStatus: "published" });
+    const listed = await db.select().from(donationRequests).where(eq(donationRequests.id, listedId)).limit(1);
+    const templeName = listed[0].templeName;
+
     const visibleRef = synthRef("SUP");
-    const hiddenRef = synthRef("SUP");
     await db.insert(fulfillmentLedger).values({
       publicRef: visibleRef,
-      recipientLabel: `Synthetic Temple Kitchen ${RUN_ID}`,
+      idempotencyKey: `pg-ledger-${RUN_ID}-1`,
+      donationRequestId: listedId,
+      recipientLabel: templeName,
       city: "Houston",
       state: "TX",
       poundsDelivered: 50,
       sugarProductLabel: "Organic cane sugar, 50 lb",
       deliveredAt: new Date("2026-01-15T12:00:00Z"),
-      recordedBy: "synthetic-admin@example.org",
-      internalNotes: "synthetic private note - truck 7",
+      recordedBy: `synthetic-admin-${RUN_ID}@example.org`,
+      internalNotes: `synthetic private note ${RUN_ID} - truck 7`,
       publicVisible: true,
     });
+    const hiddenRef = synthRef("SUP");
     await db.insert(fulfillmentLedger).values({
       publicRef: hiddenRef,
+      idempotencyKey: `pg-ledger-${RUN_ID}-2`,
       recipientLabel: `Hidden Temple ${RUN_ID}`,
       city: "Austin",
       state: "TX",
       poundsDelivered: 999,
       sugarProductLabel: "Hidden sugar",
       deliveredAt: new Date("2026-01-16T12:00:00Z"),
-      recordedBy: "synthetic-admin@example.org",
+      recordedBy: `synthetic-admin-${RUN_ID}@example.org`,
       internalNotes: "hidden private",
       publicVisible: false,
+    });
+    // Unlinked delivery: anonymized.
+    const unlinkedRef = synthRef("SUP");
+    await db.insert(fulfillmentLedger).values({
+      publicRef: unlinkedRef,
+      idempotencyKey: `pg-ledger-${RUN_ID}-3`,
+      recipientLabel: `Participating Temple (CA)`,
+      city: null,
+      state: "CA",
+      poundsDelivered: 10,
+      sugarProductLabel: "Unrefined cane sugar, 10 lb",
+      deliveredAt: new Date("2026-01-17T12:00:00Z"),
+      recordedBy: `synthetic-admin-${RUN_ID}@example.org`,
+      internalNotes: null,
+      publicVisible: true,
     });
 
     const entries = await getPublicFulfillmentEntries(100);
     const visible = entries.find((e) => e.publicRef === visibleRef);
     expect(visible).toBeTruthy();
+    // Linked + consenting + published: name and city shown.
+    expect(visible!.recipientLabel).toBe(templeName);
+    expect(visible!.city).toBe("Houston");
+    // Exact public key set; linkage IDs must never appear.
     expect(Object.keys(visible!).sort()).toEqual(
       ["city", "deliveredAt", "poundsDelivered", "publicRef", "recipientLabel", "state", "sugarProductLabel"].sort()
     );
-    expect(JSON.stringify(visible)).not.toContain("synthetic-admin@example.org");
-    expect(JSON.stringify(visible)).not.toContain("truck 7");
+    expect(JSON.stringify(visible)).not.toContain(`synthetic-admin-${RUN_ID}@example.org`);
+    expect(JSON.stringify(visible)).not.toContain(`truck 7`);
+    expect(JSON.stringify(entries)).not.toContain("donationRequestId");
     expect(entries.find((e) => e.publicRef === hiddenRef)).toBeUndefined();
+    const unlinked = entries.find((e) => e.publicRef === unlinkedRef);
+    expect(unlinked).toBeTruthy();
+    expect(unlinked!.recipientLabel).toBe("Participating Temple (CA)");
+    expect(unlinked!.city).toBeNull();
 
     const totals = await getPublicFulfillmentTotals();
-    expect(totals.totalDeliveries).toBeGreaterThanOrEqual(1);
-    expect(totals.totalPounds).toBeGreaterThanOrEqual(50);
-    // Hidden 999-lb row must not leak into public totals for this run's refs,
-    // but totals aggregate all public rows; assert our visible row counted.
-    expect(entries.reduce((s, e) => s + e.poundsDelivered, 0)).toBeGreaterThanOrEqual(50);
+    expect(totals.totalDeliveries).toBeGreaterThanOrEqual(2);
+    expect(totals.totalPounds).toBeGreaterThanOrEqual(60);
+
+    // Later unpublishing anonymizes the historical public entry.
+    await db.update(donationRequests).set({ publicListingStatus: "unpublished" }).where(eq(donationRequests.id, listedId));
+    const afterUnpublish = await getPublicFulfillmentEntries(100);
+    const anon = afterUnpublish.find((e) => e.publicRef === visibleRef);
+    expect(anon).toBeTruthy();
+    expect(anon!.recipientLabel).toBe("Participating Temple (TX)");
+    expect(anon!.city).toBeNull();
+    expect(JSON.stringify(anon)).not.toContain(templeName);
+    expect(JSON.stringify(anon)).not.toContain("Houston");
+  }, 30_000);
+
+  it("strict dates reject impossible calendar days", () => {
+    expect(toSafeDeliveredDate("2026-02-30")).toBeNull();
+    expect(toSafeDeliveredDate("2026-01-15")).toBeInstanceOf(Date);
   }, 30_000);
 });

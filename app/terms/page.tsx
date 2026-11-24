@@ -19,6 +19,8 @@ export default function TermsPage() {
           <p className="mt-2">By submitting a form, you confirm that you are authorized to share the information provided, that it is accurate to the best of your knowledge, and that you consent to being contacted about your submission.</p></section>
         <section><h2 className="font-heading text-xl font-bold">Educational content</h2>
           <p className="mt-2">Sugar-selection guidance supports purchasing decisions; it does not certify products. Product information may change. Always verify the specific product with the manufacturer.</p></section>
+        <section><h2 className="font-heading text-xl font-bold">Sponsorships (if enabled)</h2>
+          <p className="mt-2">Online sponsorship is operated by Pansophy LLC under New York law. Contributions support vegan sugar purchases and deliveries for participating temples and are not tax-deductible charitable donations. Sponsorships are final and non-refundable except for billing errors; contact us if something looks wrong. Tier amounts are provisional launch amounts subject to operator review, pound figures are approximate estimates rather than guaranteed quantities, and a sponsorship is not promised to map to any specific delivery. Public deliveries may appear in the fulfillment transparency ledger without donor or contact details.</p></section>
         <section><h2 className="font-heading text-xl font-bold">Acceptable use</h2>
           <p className="mt-2">Do not submit false information, attempt to access the administrator dashboard without authorization, or interfere with the service. Misuse may result in requests being declined and access being restricted.</p></section>
       </div>

@@ -197,7 +197,7 @@ export const outreachProspects = pgTable(
   (t) => [index("outreach_status_idx").on(t.outreachStatus)]
 );
 
-export const SPONSORSHIP_ORDER_STATUSES = ["pending", "paid", "expired", "refunded"] as const;
+export const SPONSORSHIP_ORDER_STATUSES = ["pending", "paid", "expired", "refunded", "partially_refunded"] as const;
 
 export type SponsorshipOrderStatus = (typeof SPONSORSHIP_ORDER_STATUSES)[number];
 
@@ -217,6 +217,14 @@ export const sponsorshipOrders = pgTable(
     publicRecognitionConsent: boolean("public_recognition_consent").notNull().default(false),
     status: varchar("status", { length: 24 }).notNull().default("pending"),
     allocatedRequestId: uuid("allocated_request_id").references(() => donationRequests.id, { onDelete: "set null" }),
+    // Retry-safe checkout linkage (Part 3B hardening): client-generated attempt
+    // key, unique per attempt. Null for rows created before hardening.
+    checkoutAttemptKey: varchar("checkout_attempt_key", { length: 64 }),
+    // Terms accepted with the checkout attempt (provisional launch terms).
+    termsVersion: varchar("terms_version", { length: 16 }).notNull().default("v1"),
+    termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+    // Tracks partial refunds without mislabeling them as full refunds.
+    refundedAmountCents: integer("refunded_amount_cents").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -225,7 +233,42 @@ export const sponsorshipOrders = pgTable(
     index("sponsorship_orders_status_idx").on(t.status),
     index("sponsorship_orders_created_idx").on(t.createdAt),
     uniqueIndex("sponsorship_orders_public_ref_uidx").on(t.publicRef),
+    uniqueIndex("sponsorship_orders_attempt_key_uidx").on(t.checkoutAttemptKey),
   ]
+);
+
+// Durable checkout attempts (retry-safe checkout). One row per client-generated
+// attempt key; the Stripe session is created with the attempt key as the
+// idempotency key, so retries return the same usable session.
+export const sponsorshipCheckoutAttempts = pgTable(
+  "sponsorship_checkout_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    attemptKey: varchar("attempt_key", { length: 64 }).notNull().unique(),
+    tierCode: varchar("tier_code", { length: 32 }).notNull(),
+    termsVersion: varchar("terms_version", { length: 16 }).notNull().default("v1"),
+    sponsorDisplayName: text("sponsor_display_name"),
+    stripeSessionId: text("stripe_session_id").unique(),
+    stripeSessionUrl: text("stripe_session_url"),
+    publicRef: varchar("public_ref", { length: 20 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sponsorship_attempts_created_idx").on(t.createdAt)]
+);
+
+// Verified Stripe event IDs. Inserted atomically with order state changes
+// (same transaction); the unique constraint makes replays safe, and a failed
+// transaction leaves no event row so Stripe retries remain retryable.
+export const sponsorshipStripeEvents = pgTable(
+  "sponsorship_stripe_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    stripeEventId: text("stripe_event_id").notNull().unique(),
+    orderId: uuid("order_id").references(() => sponsorshipOrders.id, { onDelete: "set null" }),
+    eventType: varchar("event_type", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  }
 );
 
 export const fulfillmentLedger = pgTable(
@@ -243,6 +286,8 @@ export const fulfillmentLedger = pgTable(
     deliveredAt: timestamp("delivered_at", { withTimezone: true }).notNull(),
     recordedBy: text("recorded_by").notNull(),
     internalNotes: text("internal_notes"),
+    // Repeat-safe admin submissions: one row per client-generated key.
+    idempotencyKey: varchar("idempotency_key", { length: 64 }),
     publicVisible: boolean("public_visible").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -250,6 +295,7 @@ export const fulfillmentLedger = pgTable(
     index("fulfillment_ledger_public_visible_idx").on(t.publicVisible),
     index("fulfillment_ledger_delivered_at_idx").on(t.deliveredAt),
     uniqueIndex("fulfillment_ledger_public_ref_uidx").on(t.publicRef),
+    uniqueIndex("fulfillment_ledger_idempotency_uidx").on(t.idempotencyKey),
   ]
 );
 
@@ -258,3 +304,5 @@ export type SupportOffer = typeof supportOffers.$inferSelect;
 export type ContactInquiry = typeof contactInquiries.$inferSelect;
 export type SponsorshipOrder = typeof sponsorshipOrders.$inferSelect;
 export type FulfillmentLedgerEntry = typeof fulfillmentLedger.$inferSelect;
+export type SponsorshipCheckoutAttempt = typeof sponsorshipCheckoutAttempts.$inferSelect;
+export type SponsorshipStripeEvent = typeof sponsorshipStripeEvents.$inferSelect;

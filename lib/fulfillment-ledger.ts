@@ -1,15 +1,22 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { fulfillmentLedger } from "./schema";
+import { donationRequests, fulfillmentLedger } from "./schema";
 import { reportHandledError } from "./sentry";
 
 /**
- * Fulfillment Transparency Ledger (Part 3B) — privacy-safe read layer.
+ * Fulfillment Transparency Ledger (Part 3B, hardened) — privacy-safe read layer.
  *
- * The projection below is the ONLY data /sponsor may ever render for
- * deliveries. Private fields (recordedBy, internalNotes, sponsorEmail,
- * donation/sponsorship linkage, temple contact data) are NEVER selected,
- * returned, or passed to any client component or public response.
+ * Temple identity is consent-gated at READ time:
+ * - A linked temple's name/city is shown ONLY while its current
+ *   `publicListingConsent` is true AND `publicListingStatus` is "published".
+ * - Otherwise (unlinked, no consent, unpublished, missing) the entry renders
+ *   as "Participating Temple (STATE)" with city omitted.
+ *
+ * This means later unpublishing a temple automatically anonymizes its
+ * historical public ledger entries. The projection below is the ONLY data
+ * /sponsor may ever render. Private fields (recordedBy, internalNotes,
+ * sponsorEmail, donation/sponsorship linkage IDs, temple contact data) are
+ * NEVER selected into public results.
  */
 export type PublicFulfillmentEntry = {
   publicRef: string;
@@ -21,29 +28,81 @@ export type PublicFulfillmentEntry = {
   deliveredAt: Date;
 };
 
+type LedgerRowWithGate = {
+  publicRef: string;
+  storedRecipientLabel: string;
+  storedCity: string | null;
+  storedState: string | null;
+  poundsDelivered: number;
+  sugarProductLabel: string;
+  deliveredAt: Date;
+  linkedConsent: boolean | null;
+  linkedStatus: string | null;
+  linkedTempleName: string | null;
+  linkedCity: string | null;
+  linkedState: string | null;
+};
+
 export async function getPublicFulfillmentEntries(limit = 100): Promise<PublicFulfillmentEntry[]> {
   const db = getDb();
   if (!db) return [];
   try {
-    const rows = await db
+    const rows = (await db
       .select({
         publicRef: fulfillmentLedger.publicRef,
-        recipientLabel: fulfillmentLedger.recipientLabel,
-        city: fulfillmentLedger.city,
-        state: fulfillmentLedger.state,
+        storedRecipientLabel: fulfillmentLedger.recipientLabel,
+        storedCity: fulfillmentLedger.city,
+        storedState: fulfillmentLedger.state,
         poundsDelivered: fulfillmentLedger.poundsDelivered,
         sugarProductLabel: fulfillmentLedger.sugarProductLabel,
         deliveredAt: fulfillmentLedger.deliveredAt,
+        linkedConsent: donationRequests.publicListingConsent,
+        linkedStatus: donationRequests.publicListingStatus,
+        linkedTempleName: donationRequests.templeName,
+        linkedCity: donationRequests.city,
+        linkedState: donationRequests.state,
       })
       .from(fulfillmentLedger)
+      // Left join: unlinked rows keep null gate fields and anonymize.
+      .leftJoin(donationRequests, eq(fulfillmentLedger.donationRequestId, donationRequests.id))
       .where(eq(fulfillmentLedger.publicVisible, true))
       .orderBy(desc(fulfillmentLedger.deliveredAt))
-      .limit(Math.min(Math.max(limit, 1), 200));
-    return rows;
+      .limit(Math.min(Math.max(limit, 1), 200))) as LedgerRowWithGate[];
+    return rows.map(toPublicEntry);
   } catch {
     reportHandledError("fulfillment_ledger_read", "/sponsor");
     throw new Error("Fulfillment ledger unavailable.");
   }
+}
+
+/** Map one joined row through the consent gate. Never leaks linkage IDs. */
+export function toPublicEntry(row: LedgerRowWithGate): PublicFulfillmentEntry {
+  const gated =
+    row.linkedConsent === true &&
+    row.linkedStatus === "published" &&
+    (row.linkedTempleName ?? "").trim().length > 0;
+  if (gated) {
+    return {
+      publicRef: row.publicRef,
+      recipientLabel: (row.linkedTempleName as string).trim().slice(0, 200),
+      city: (row.linkedCity ?? "").trim() || null,
+      state: ((row.linkedState ?? "").trim().toUpperCase() || row.storedState) as string | null,
+      poundsDelivered: row.poundsDelivered,
+      sugarProductLabel: row.sugarProductLabel,
+      deliveredAt: row.deliveredAt,
+    };
+  }
+  // Anonymized: omit city so a temple cannot be re-identified.
+  const s = (row.storedState ?? row.linkedState ?? "").trim().toUpperCase();
+  return {
+    publicRef: row.publicRef,
+    recipientLabel: anonymizedRecipientLabel(/^[A-Z]{2}$/.test(s) ? s : null),
+    city: null,
+    state: /^[A-Z]{2}$/.test(s) ? s : null,
+    poundsDelivered: row.poundsDelivered,
+    sugarProductLabel: row.sugarProductLabel,
+    deliveredAt: row.deliveredAt,
+  };
 }
 
 export type FulfillmentTotals = { totalPounds: number; totalDeliveries: number };
@@ -102,18 +161,24 @@ export async function countPublicFulfillmentEntries(): Promise<number> {
   }
 }
 
+/**
+ * Strict delivery-date parser. Accepts YYYY-MM-DD (UTC noon) or full ISO
+ * timestamps. Rejects impossible dates such as 2026-02-30 instead of
+ * allowing JavaScript date rollover.
+ */
 export function toSafeDeliveredDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  // Accept YYYY-MM-DD (date-only, UTC midnight) or full ISO timestamps.
+  // Strict YYYY-MM-DD: verify components round-trip.
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     const [y, m, d] = trimmed.split("-").map(Number);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
     const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-    return Number.isNaN(dt.getTime()) ? null : dt;
+    if (Number.isNaN(dt.getTime())) return null;
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+    return dt;
   }
   const dt = new Date(trimmed);
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
-
-

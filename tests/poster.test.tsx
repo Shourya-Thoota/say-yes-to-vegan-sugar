@@ -63,6 +63,42 @@ describe("poster guide links", () => {
     expect(guide).toContain("printable kitchen guide");
   });
 
+  it("poster print CSS keeps single-page rules scoped without hiding content", async () => {
+    const fs = await import("node:fs");
+    const css = fs.readFileSync("app/globals.css", "utf8");
+    expect(css).toContain(".poster-sheet .poster-record");
+    expect(css).toContain(".poster-sheet .poster-guide");
+    expect(css).toContain("break-inside: avoid");
+    expect(css).toContain(".poster-sheet .poster-qr svg");
+    // Scoped poster print rules must not conceal overflow to force one page.
+    const printBlock = css.slice(css.indexOf("@media print"));
+    const posterRules = printBlock.slice(
+      printBlock.indexOf(".poster-sheet"),
+      printBlock.indexOf("@page")
+    );
+    expect(posterRules).not.toMatch(/overflow\s*:\s*hidden/);
+    expect(posterRules).not.toMatch(/clip-path/);
+    expect(posterRules).not.toMatch(/fixed/);
+    // Print must not force viewport-height layout that spills onto a blank page.
+    // body.min-h-screen outranks the bare Tailwind utility, without !important.
+    expect(printBlock).toMatch(/body\.min-h-screen[\s\S]*?min-height\s*:\s*auto/);
+  });
+
+  it("poster markup keeps print compaction without removing content", async () => {
+    const fs = await import("node:fs");
+    const poster = fs.readFileSync("app/poster/page.tsx", "utf8");
+    expect(poster).toContain("poster-record");
+    expect(poster).toContain("poster-guide");
+    expect(poster).toContain("poster-qr");
+    expect(poster).toContain("print:mt-2");
+    expect(poster).toContain("print:flex-row");
+    // Content safeguards: QR, readable URL, write-in fields, and qualifications stay.
+    expect(poster).toContain("choosingUrl");
+    expect(poster).toContain("Product / brand");
+    expect(poster).toContain("does not certify products");
+    expect(poster).not.toMatch(/display\s*:\s*none/);
+  });
+
   it("homepage keeps the verified video and does not add sponsorship actions", async () => {
     const fs = await import("node:fs");
     const home = fs.readFileSync("app/page.tsx", "utf8");

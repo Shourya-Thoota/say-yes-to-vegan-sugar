@@ -68,7 +68,7 @@ export function SiteHeader() {
       {open && (
         <div id="mobile-menu" className="border-t border-[#E5DCCB] bg-white px-4 py-4 md:hidden">
           <nav aria-label="Mobile" className="flex flex-col gap-1">
-            {[...NAV, { href: "/support", label: "Support" }, { href: "/contact", label: "Contact" }].map((n) => (
+            {[...NAV, { href: "/sponsor", label: "Sponsor" }, { href: "/support", label: "Support" }, { href: "/contact", label: "Contact" }].map((n) => (
               <Link
                 key={n.href}
                 href={n.href}

@@ -27,6 +27,7 @@ export function SiteFooter() {
             <li><Link className="hover:underline" href="/temples">Temple Directory</Link></li>
             <li><Link className="hover:underline" href="/choosing-sugar">Choosing-Sugar Guide</Link></li>
             <li><Link className="hover:underline" href="/request-sugar">Request Sugar</Link></li>
+            <li><Link className="hover:underline" href="/sponsor">Sponsor</Link></li>
             <li><Link className="hover:underline" href="/support">Support</Link></li>
             <li><Link className="hover:underline" href="/contact">Contact</Link></li>
           </ul>

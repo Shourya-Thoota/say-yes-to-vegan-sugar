@@ -99,6 +99,12 @@ export default async function AdminPage({
         </div>
       </div>
 
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link href="/admin/fulfillment" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-terracotta-deeper px-6 py-2.5 font-semibold text-white hover:bg-[#7E3B1E]">
+          Sponsorship &amp; fulfillment ledger
+        </Link>
+      </div>
+
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {[
           { label: "Donation requests", n: reqCount.n },

@@ -8,13 +8,21 @@ function isValidState(v: string) {
 }
 
 // Date-only helper: expect YYYY-MM-DD, no timezone shift.
+// Strict: rejects impossible dates such as 2026-02-30 (no JS rollover).
 export function parseDateOnly(value: string | undefined | null): Date | null {
   if (!value) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [y, m, d] = value.split("-").map(Number);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
   const dt = new Date(Date.UTC(y, m - 1, d));
   if (Number.isNaN(dt.getTime())) return null;
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
   return dt;
+}
+
+export function isValidUuid(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 
 export function todayDateOnlyUTC(): string {
@@ -165,6 +173,55 @@ export const adminListingSummarySchema = z.object({
 
 export const adminListingActionSchema = z.object({
   action: z.enum(["publish", "unpublish"]),
+});
+
+// Part 3B (hardened): public sponsorship checkout. Tier code is the only
+// pricing input; amounts are resolved server-side. Each POST carries a
+// client-generated attempt key (retry-safe idempotency) plus the accepted
+// terms version/timestamp. The public-recognition checkbox was removed for
+// this release: no consent-enforced recognition display is implemented, so
+// all sponsors stay anonymous in public output.
+export const sponsorshipCheckoutSchema = z.object({
+  tierCode: z.enum(["bag_10", "bag_25", "bag_50", "bag_100"], {
+    required_error: "Choose a sponsorship tier.",
+  }),
+  attemptKey: z
+    .string()
+    .trim()
+    .min(8, "A checkout attempt key is required.")
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, "Invalid checkout attempt key."),
+  termsVersion: z.string().trim().max(16).optional().default("v1"),
+  acknowledgesTerms: z.literal(true, {
+    errorMap: () => ({ message: "Please acknowledge the sponsorship terms before continuing." }),
+  }),
+});
+
+export type SponsorshipCheckoutInput = z.infer<typeof sponsorshipCheckoutSchema>;
+
+// Part 3B (hardened): admin fulfillment-ledger entry.
+// - Linked deliveries resolve temple identity server-side from
+//   donationRequestId; no free-text recipient bypass is honored.
+// - Unlinked deliveries are always anonymized server-side.
+// - donation/sponsorship linkage must be valid UUIDs that exist.
+// - idempotencyKey makes repeat form submissions safe (one row per key).
+export const fulfillmentEntrySchema = z.object({
+  idempotencyKey: z.string().trim().min(8, "A submission key is required.").max(64).regex(/^[A-Za-z0-9_-]+$/, "Invalid submission key."),
+  state: z.string().trim().max(2).optional().default(""),
+  poundsDelivered: z.coerce.number({ invalid_type_error: "Enter pounds delivered." }).int().positive("Pounds must be more than zero.").max(100000),
+  sugarProductLabel: z.string().trim().min(2, "Product label is required.").max(300),
+  deliveredAt: z.string().trim().min(1, "Delivery date is required.").max(30),
+  publicVisible: z.boolean().optional().default(false),
+  internalNotes: z.string().trim().max(2000).optional().default(""),
+  donationRequestId: z.string().trim().max(64).optional().default(""),
+  sponsorshipOrderId: z.string().trim().max(64).optional().default(""),
+});
+
+export type FulfillmentEntryInput = z.infer<typeof fulfillmentEntrySchema>;
+
+export const fulfillmentVisibilitySchema = z.object({
+  entryId: z.string().trim().min(1, "Entry is required."),
+  publicVisible: z.enum(["true", "false"]),
 });
 
 export function flattenZodErrors(error: z.ZodError) {

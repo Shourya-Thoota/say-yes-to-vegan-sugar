@@ -19,14 +19,14 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1796361600000,
+      "when": 1795562400000,
       "tag": "0002_sponsorship_fulfillment",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1795562500000,
+      "when": 1795562640000,
       "tag": "0003_sponsorship_hardening",
       "breakpoints": true
     }

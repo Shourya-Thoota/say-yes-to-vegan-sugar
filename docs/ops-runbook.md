@@ -94,15 +94,23 @@ Source: `Dockerfile`, `lib/migrate.ts`, `.github/workflows/ci.yml`,
 1. Set/verify Railway variables (Section 1). Changing
    `NEXT_PUBLIC_SITE_URL` or `NEXT_PUBLIC_SENTRY_DSN` requires rebuild.
 2. Run pre-deploy: `npm run db:migrate` with production `DATABASE_URL`.
-   Runner exits non-zero without `DATABASE_URL`; migration failure logs
-   only `err.message`, never full connection string.
+   Runner exits non-zero without `DATABASE_URL`. Migration failure is
+   logged as `err.message` (recommendation: keep logs free of connection
+   strings; this alone does not guarantee the message text is free of
+   sensitive details — see Section 5).
 3. Deploy image, start `node server.js`.
-4. Verify: `GET /api/health → 200`, then `GET /api/ready → 200`.
+4. Verify read-only by default: `GET /api/health → 200`, then `GET
+   /api/ready → 200`.
 5. Verify admin sign-in (`/admin/signin`): allowlisted Google account
    succeeds; non-allowlisted sees Access Denied; signed-out `/admin`
    sees Access Denied.
-6. Verify one donation-request + support + contact submission appears in
-   `/admin` (see Section 9 for test-data cleanup gating).
+6. Synthetic production submissions (donation-request, support, contact)
+   are **not routine** and are **not authorized by a deploy**. They
+   require a separate written approval naming the target routes, the
+   synthetic record identifiers/markers, potential notifications and
+   side effects (admin visibility, email, rate-limit consumption), and
+   the cleanup/retention plan (see Section 9). Default to read-only
+   checks unless that approval exists.
 
 ### 3.3 Automated checks versus manual operating procedures
 
@@ -119,19 +127,26 @@ alone does not mean production is ready.
 
 ### 3.4 Application rollback versus database rollback
 
-- Application rollback: redeploy the previous known-good image/commit
-  via Railway. Safe because builds are stateless; no migration runs at
-  image build time.
+- Application rollback: redeploying an older image/commit is **not
+  automatically safe**. Before redeploying, explicitly check the target
+  application's compatibility with: the current database schema (forward
+  migrations are not undone by an older image), current
+  environment/configuration (required vars, build-time public values,
+  auth allowlist, proxy settings), and in-flight checkout/webhook state
+  (pending Stripe sessions, unprocessed webhook retries, ledger writes).
+  No migration runs at image build time, but that alone does not make
+  rollback safe.
 - Database rollback: there is **no automated down-migration**. `lib/migrate.ts`
-  only applies forward. A schema change that added columns/tables cannot
-  be undone by redeploying old code. Procedure:
+  only applies forward, and production tables must never be edited ad hoc
+  or destructively rolled back. Default to a forward fix. Procedure:
   1. Stop further migrations.
-  2. Assess whether old code is compatible with new schema (usually yes
-     for additive changes; blocking for renames/drops — none present in
-     current journal).
+  2. Assess whether the rollback-candidate code is compatible with the
+     current schema (additive changes are often compatible; renames/drops
+     are blocking — none present in the current journal, but re-check the
+     actual deployed schema rather than assuming).
   3. If incompatible, restore into an **isolated** database first (Section
-     4), verify, then plan a forward fix migration. Never edit production
-     tables ad hoc without a reviewed migration.
+     4), verify, then plan a reviewed forward-fix migration. Never modify
+     production or the source backup to test compatibility.
 - Staged-upgrade regression coverage exists
   (`tests/migration-staged-upgrade.test.ts`): journal order check plus
   staged migration tests. This guards migration ordering in CI; it is not
@@ -173,19 +188,34 @@ handling owner, and cleanup owner. This runbook authorizes no restore.
    external side effects disabled: no outbound email, no Stripe live
    keys, no webhook delivery, no Sentry uploads (unset DSN or use a
    separate test project), no public DNS.
-5. Verify in isolation:
-   - `npm run db:migrate` is a clean no-op (schema matches journal).
+5. Inspect the restored backup **read-only before modifying it**: check the
+   restored schema and migration history (tables present, Drizzle
+   `__drizzle_migrations` state versus `./drizzle` journal) without
+   running migrations. A backup may predate the current release, so do
+   not assume `npm run db:migrate` would be a no-op. Preserve the
+   original restore evidence (schema/history snapshot, row counts).
+6. Verify in isolation (still read-only at this stage):
    - Row counts + key integrity: `donation_requests`, `support_offers`,
      `contact_inquiries`, `fulfillment_ledger`, `sponsorship_orders`,
      `request_status_history`, `request_notes` present; public refs
      (`SVS-`, `SUP-`, `CON-`) unique; idempotency keys unique.
-   - `/api/health → 200`, `/api/ready → 200` against isolated DB.
+   - `/api/health → 200`, `/api/ready → 200` against the isolated DB.
    - Admin sign-in with a test allowlist (do not reuse production
      `ADMIN_EMAILS` verbatim in logs).
-6. Record: recovery duration, backup timestamp versus restore-completion
-   time (data-loss window), and any gaps versus the operator's recovery
-   objectives `[OWNER: RPO/RTO]`.
-7. Cleanup: delete the isolated database, revoke temporary credentials,
+7. Only if an upgrade test is explicitly approved: apply migrations to
+   the **isolated drill copy only** (never production, never the source
+   backup), recording schema/history before and after. Treat any
+   divergence as a finding, not as a cleanup step.
+8. Record three separate measurements and compare them with the
+   operator's defined objectives `[OWNER: RTO/RPO]`; do not invent
+   achieved values:
+   - Recovery duration: explicitly recorded start of the recovery
+     exercise through restoration and successful validation.
+   - Recovery point: the backup's documented recoverable point.
+   - Potential data-loss window: incident/reference time minus the
+     recovery point (not restore-completion time minus backup
+     timestamp).
+9. Cleanup: delete the isolated database, revoke temporary credentials,
    confirm deletion. Treat dumps/exports as sensitive until deleted.
 
 ---
@@ -213,8 +243,11 @@ handling owner, and cleanup owner. This runbook authorizes no restore.
 - Safe logging rules (enforced in code, follow in ops):
   - Never log `DATABASE_URL`, secrets, request bodies, cookies, headers,
     query strings, emails, or record linkage IDs.
-  - Public API errors are generic; detailed DB exceptions go to server
-    logs only (`console.error` with message, no payload).
+  - Public API errors are generic by design. Server logs record the
+    failure with `console.error` of the error message without an
+    attached payload (recommendation, not a guarantee: an `err.message`
+    string can still carry sensitive text such as a host, SQL fragment,
+    or submitted value — review log output before sharing it).
   - CSV exports (`/api/admin/export`) contain PII and are
     `private, no-store`. Download only over admin session, store
     encrypted, delete when done.
@@ -307,14 +340,25 @@ No keys are configured by this runbook; nothing here enables charges.
 
 ### 7.1 Disabled-mode expectations (verified in repo)
 
-- Gate: `isStripeSponsorshipEnabled()` (`lib/config.ts`) is true only
-  when `ENABLE_STRIPE_SPONSORSHIP=true` **and** non-empty
-  `STRIPE_SECRET_KEY`. `/api/sponsorship/checkout` additionally requires
-  non-empty `STRIPE_WEBHOOK_SECRET`, else `503 { ok: false, message:
-  "Online sponsorship is not available yet…" }`.
-- `/sponsor` renders cleanly with zero keys: tier table, terms, and the
-  public fulfillment ledger (or ledger-unavailable fallback). No Stripe.js
-  is loaded and no session is created in disabled mode.
+- Exact gate (verified in repo): `isStripeSponsorshipEnabled()`
+  (`lib/config.ts`) returns true only when
+  `ENABLE_STRIPE_SPONSORSHIP=true` **and** `STRIPE_SECRET_KEY` is
+  non-empty. The `/sponsor` page uses exactly this check to decide
+  whether to render `<SponsorForm />`. Separately,
+  `POST /api/sponsorship/checkout` additionally requires non-empty
+  `STRIPE_WEBHOOK_SECRET`, else `503 { ok: false, message: "Online
+  sponsorship is not available yet…" }` — so a page showing the form
+  does not by itself prove checkout will succeed.
+- Disabled page (`/sponsor` with zero keys) actually renders: the
+  eyebrow + `Sponsor vegan sugar.` heading + intro copy, the Important
+  terms section (Pansophy LLC operation, non-tax-deductible,
+  non-refundable except billing errors, no promised delivery mapping,
+  provisional amounts/estimates), an `Online sponsorship is opening
+  soon.` panel linking to `/support` and `/temples`, and the
+  fulfillment transparency ledger section (totals + entries, `No public
+  deliveries recorded yet.` when empty, or a `temporarily unavailable`
+  fallback). No `<SponsorForm />` is rendered, no Stripe.js is loaded,
+  and no checkout session is created in disabled mode.
 - Webhook (`/api/webhooks/stripe`) is zero-key safe: `503` without
   webhook secret; `400` on missing/invalid signature; `200 { received:
   true }` for verified replays/ignored events; `500 { retryable: true }`
@@ -333,26 +377,33 @@ No keys are configured by this runbook; nothing here enables charges.
   (pound figures approximate, non-tax-deductible, non-refundable except
   billing errors). They remain subject to operator review.
 
-### 7.2 Activation checklist — separate explicit approval required
+### 7.2 Activation sequence — separate explicit approvals required
 
-Do not perform without written operator + finance approval. No test or
-live keys are added by this runbook.
+Do not perform any step without its approval. No test or live keys are
+added by this runbook, and Stripe stays disabled here.
 
-1. Approve: live vs test mode, tier amounts, terms version (`v1`),
-   refund policy, receipt/tax language, and support contact.
-2. Create Stripe account products/prices only if needed (code uses
-   inline `price_data`; no price IDs required). Restrict keys by
-   environment.
-3. Set on Railway (rebuild/restart): `ENABLE_STRIPE_SPONSORSHIP=true`,
-   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`. Never commit keys.
-4. Configure webhook endpoint `POST /api/webhooks/stripe` in Stripe
-   Dashboard with signing secret matching `STRIPE_WEBHOOK_SECRET`.
-5. Test in Stripe test mode end-to-end (checkout → paid webhook →
-   ledger entry → refund/partial-refund → expired-session flows),
-   then repeat the money-movement test after switching to live only if
-   approved.
-6. Confirm fulfillment-ledger privacy gating (Section 8) still holds
-   with real sponsor data before announcing.
+1. Review and approve: tier prices, pound estimates, terms version
+   (`v1`), refund policy, receipt/tax language, support contact, and
+   operating responsibilities (who monitors webhooks, refunds, ledger
+   privacy, and finance reconciliation).
+2. Configure a separate isolated/test environment first: Stripe
+   test-mode credentials with the matching test webhook secret,
+   synthetic data only, and no production database. Never point test
+   webhooks at production.
+3. Test there end-to-end: enabled checkout UI, payment/webhook
+   lifecycle (paid, expired/failed, duplicate/replayed, amount or
+   currency mismatch, unknown order), retries, full and partial
+   refunds, fulfillment-ledger privacy gating (Section 8), and
+   mobile/keyboard behavior of the checkout form.
+4. Obtain a separate approval before configuring live production
+   credentials: set `ENABLE_STRIPE_SPONSORSHIP=true`,
+   `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET` on Railway
+   (rebuild/restart as needed) and configure `POST
+   /api/webhooks/stripe` in the Stripe Dashboard with the matching
+   signing secret. Never commit keys.
+5. Any real-charge smoke test on production requires its own explicit
+   approval naming amount, payer, refund plan, and record cleanup.
+   Confirm ledger privacy with real sponsor data before announcing.
 
 ---
 

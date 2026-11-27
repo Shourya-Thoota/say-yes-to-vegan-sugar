@@ -11,3 +11,6 @@ test-results
 playwright-report
 .DS_Store
 tsconfig.tsbuildinfo
+/freebuff-sites-build/
+/.open-next/
+/.wrangler/

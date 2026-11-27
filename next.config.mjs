@@ -6,6 +6,13 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: { unoptimized: true },
+  // pg resolves pg-cloudflare through a "workerd" export condition, which
+  // Next's Node-based file tracer does not see: it traces only dist/empty.js.
+  // The Workers bundle still requires dist/index.js at build time, so include
+  // the whole package explicitly. Harmless for the Railway (Node) image.
+  outputFileTracingIncludes: {
+    "/**/*": ["./node_modules/pg-cloudflare/**/*"],
+  },
   experimental: {
     serverActions: { bodySizeLimit: "512kb" },
   },

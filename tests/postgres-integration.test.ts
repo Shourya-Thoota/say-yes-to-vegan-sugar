@@ -387,10 +387,10 @@ pgDescribe("postgres integration (real PostgreSQL 18, synthetic data)", () => {
     // Direct limiter persistence with a small threshold on an isolated key.
     const directKey = `pg-test-${RUN_ID}-direct-${keyCounter}`;
     for (let i = 0; i < 3; i++) {
-      const r = await checkRateLimit(directKey, 3, 3600);
+      const r = await checkRateLimit(db, directKey, 3, 3600);
       expect(r.allowed).toBe(true);
     }
-    const fourth = await checkRateLimit(directKey, 3, 3600);
+    const fourth = await checkRateLimit(db, directKey, 3, 3600);
     expect(fourth.allowed).toBe(false);
     const direct = await db
       .select()

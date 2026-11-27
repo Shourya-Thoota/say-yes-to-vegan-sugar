@@ -1,0 +1,9 @@
+// Minimal Wrangler config for the CI build check.
+// No bindings: this only validates that OpenNext can bundle the Worker.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "temple-initiative-ci",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"]
+}

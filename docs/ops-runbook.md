@@ -1,7 +1,7 @@
 # Temple Initiative — Operations Runbook
 
 Scope: **Say Yes to Vegan Sugar** production operations.
-Read-only audit baseline: `origin/main` at `224c80b` (verified 2026-11-26).
+Read-only audit baseline: `origin/main` at `11eb14f6222be1dc351b8b7f8d435615b692ac91` (audit baseline only, verified 2026-11-26).
 This document describes implemented behavior with code references. It does
 not change production, enable payments, send test events, or restore backups.
 Anything marked **UNVERIFIED** or **OWNER-CONFIRM** requires explicit operator
@@ -534,19 +534,40 @@ only), `docs/share-translations-review.md`.
 - Stripe tiers/terms/tax language: provisional, needs operator + finance
   review before activation.
 
+### 12.1 Operator-reported operational facts (observed 2026-11-26, not independently verified)
+
+The operator provided no values for the requested fields. Each item is
+recorded as UNVERIFIED and was not independently verified by this
+documentation change. Do not treat this runbook as launch-ready.
+
+- Backup schedule + time zone: UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Backup retention: UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Last successful backup timestamp + date observed: UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Backup failure notification owner: UNVERIFIED (operator-reported 2026-11-26, not independently verified; record role title only, no personal contact details)
+- Last restore test date/result: UNVERIFIED — no restore performed by this change (operator-reported 2026-11-26, not independently verified)
+- Sentry project + access owner: UNVERIFIED (operator-reported 2026-11-26, not independently verified; record role title only)
+- Sentry alert recipients: UNVERIFIED (operator-reported 2026-11-26, not independently verified; record role titles only)
+- Sentry scrubbing/retention/data region: UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Production RPO/RTO targets: UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+
 ---
 
 ## 13. Contacts and placeholders
 
+Operator-reported status observed 2026-11-26 (not independently
+verified). Unknown items remain UNVERIFIED. Do not treat as
+launch-ready. Use role titles instead of personal contact details
+unless the operator explicitly approves them.
+
 Replace before launch; do not invent values:
 
-- Production domain / canonical URL: `[OWNER]`
-- Railway project + Postgres service IDs: `[OWNER]`
-- Database backup owner + RPO/RTO: `[OWNER]`
-- Sentry project / DSN owner + alert recipients: `[OWNER]`
-- Google OAuth client owner + redirect URI: `[OWNER]`
-- Admin allowlist approver: `[OWNER]`
-- Temple review / fulfillment owners + SLA: `[OWNER]`
-- Privacy/terms legal reviewer: `[OWNER]`
-- Stripe finance owner (if ever activated): `[OWNER]`
-- Security / abuse contact: `[OWNER]`
+- Production domain / canonical URL: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Railway project + Postgres service IDs: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Database backup owner + RPO/RTO: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified; backup schedule, retention, last backup, failure-notification owner, last restore test, and RPO/RTO targets all UNVERIFIED per Section 12.1)
+- Sentry project / DSN owner + alert recipients: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified; Sentry project, access owner, alert recipients, scrubbing/retention/data region all UNVERIFIED per Section 12.1)
+- Google OAuth client owner + redirect URI: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Admin allowlist approver: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Temple review / fulfillment owners + SLA: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Privacy/terms legal reviewer: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Stripe finance owner (if ever activated): `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified)
+- Security / abuse contact: `[OWNER]` — UNVERIFIED (operator-reported 2026-11-26, not independently verified; record role title only)

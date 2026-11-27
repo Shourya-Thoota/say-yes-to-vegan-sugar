@@ -12,6 +12,7 @@ import { POST as contactPost } from "../app/api/contact/route";
 import { GET as readyGet } from "../app/api/ready/route";
 import { GET as healthGet } from "../app/api/health/route";
 import { checkRateLimit } from "../lib/rate-limit";
+import { getDb } from "../lib/db";
 
 const adminState = vi.hoisted(() => ({ admin: null as { email: string } | null }));
 vi.mock("@/lib/auth", () => ({
@@ -102,9 +103,9 @@ describe("public submission APIs without a database", () => {
 describe("rate limiter", () => {
   it("allows up to the limit then blocks with a retry hint", async () => {
     const key = `test:${Date.now()}:${Math.random()}`;
-    expect((await checkRateLimit(key, 2, 60)).allowed).toBe(true);
-    expect((await checkRateLimit(key, 2, 60)).allowed).toBe(true);
-    const third = await checkRateLimit(key, 2, 60);
+    expect((await checkRateLimit(getDb(), key, 2, 60)).allowed).toBe(true);
+    expect((await checkRateLimit(getDb(), key, 2, 60)).allowed).toBe(true);
+    const third = await checkRateLimit(getDb(), key, 2, 60);
     expect(third.allowed).toBe(false);
     expect(third.remaining).toBe(0);
     expect(third.retryAfterSec).toBeGreaterThan(0);

@@ -1,5 +1,5 @@
 import { and, eq, gte } from "drizzle-orm";
-import { getDb } from "./db";
+import type { AppDatabase } from "./db";
 import { rateLimits } from "./schema";
 
 // In-memory fallback when DATABASE_URL is missing (dev/build only).
@@ -25,14 +25,20 @@ export function bucketKey(prefix: string, headers: Headers): string {
   return `${prefix}:${clientIpFromHeaders(headers)}`;
 }
 
+/**
+ * `db` is the caller's request-scoped handle. Routes call getDb() once and pass
+ * it here so a Workers request uses a single connection for the limiter and the
+ * insert instead of opening one per getDb() call. Null means the database is
+ * not configured; the in-memory fallback keeps dev and builds working.
+ */
 export async function checkRateLimit(
+  db: AppDatabase | null,
   key: string,
   limit: number,
   windowSec: number
 ): Promise<RateLimitResult> {
   const now = Date.now();
   const windowStart = new Date(Math.floor(now / 1000 / windowSec) * windowSec * 1000);
-  const db = getDb();
   if (!db) {
     const entry = memory.get(key);
     if (!entry || entry.resetAt <= now) {

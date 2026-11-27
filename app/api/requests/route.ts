@@ -19,7 +19,8 @@ export async function POST(req: Request) {
 
   // Rate limit: 10 submissions/hour per IP
   const headers = req.headers as unknown as Headers;
-  const rl = await checkRateLimit(bucketKey("requests", headers), 10, 3600);
+  const db = getDb();
+  const rl = await checkRateLimit(db, bucketKey("requests", headers), 10, 3600);
   if (!rl.allowed) {
     return NextResponse.json(
       { ok: false, message: "Too many submissions. Please try again later." },
@@ -48,7 +49,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ref: "SVS-0000-0000", message: "Received." });
   }
 
-  const db = getDb();
   if (!db) {
     return NextResponse.json(
       { ok: false, errors: { _form: "Submissions are temporarily unavailable. Please try again later." } },

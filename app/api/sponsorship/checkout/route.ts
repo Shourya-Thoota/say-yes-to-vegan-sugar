@@ -40,7 +40,8 @@ export async function POST(req: Request) {
   }
 
   const headers = req.headers as unknown as Headers;
-  const rl = await checkRateLimit(bucketKey("sponsorship-checkout", headers), 20, 3600);
+  const db = getDb();
+  const rl = await checkRateLimit(db, bucketKey("sponsorship-checkout", headers), 20, 3600);
   if (!rl.allowed) {
     return NextResponse.json(
       { ok: false, message: "Too many requests. Please try again later." },
@@ -75,7 +76,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = getDb();
   if (!db) {
     return NextResponse.json(
       { ok: false, errors: { _form: "Sponsorship is temporarily unavailable. Please try again later." } },

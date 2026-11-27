@@ -3,7 +3,7 @@ import { Client, Pool } from "pg";
 import { after } from "next/server";
 import * as schema from "./schema";
 
-type AppDatabase = NodePgDatabase<typeof schema>;
+export type AppDatabase = NodePgDatabase<typeof schema>;
 
 // Node/Railway path only: one pool for the lifetime of the process.
 let pool: Pool | null = null;

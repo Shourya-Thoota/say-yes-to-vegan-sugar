@@ -12,7 +12,8 @@ export async function POST(req: Request) {
   if (raw === null) return NextResponse.json({ ok: false, message: "Invalid request." }, { status: 400 });
   if (raw.length > 32_000) return NextResponse.json({ ok: false, message: "Submission is too large." }, { status: 413 });
 
-  const rl = await checkRateLimit(bucketKey("contact", req.headers as unknown as Headers), 20, 3600);
+  const db = getDb();
+  const rl = await checkRateLimit(db, bucketKey("contact", req.headers as unknown as Headers), 20, 3600);
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, message: "Too many submissions. Please try again later." }, { status: 429 });
   }
@@ -28,7 +29,6 @@ export async function POST(req: Request) {
   const v = parsed.data;
   if (v.company?.trim()) return NextResponse.json({ ok: true, ref: "CON-0000-0000" });
 
-  const db = getDb();
   if (!db) {
     return NextResponse.json({ ok: false, errors: { _form: "Submissions are temporarily unavailable. Please try again later." } }, { status: 503 });
   }

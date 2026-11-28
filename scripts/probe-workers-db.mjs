@@ -8,6 +8,10 @@
  * ReadyForQuery, then refuses the first query frame of each round trip with a
  * generic ErrorResponse (Sync gets ReadyForQuery, Terminate is recorded). It
  * records each TCP connect, whether the client sent Terminate, and the close.
+ * The one-error-per-round-trip shape is deliberate: answering every frame with
+ * ErrorResponse + ReadyForQuery (five per connection) makes node-postgres
+ * destroy the socket without a Terminate even on a warm build, which would
+ * make a real leak indistinguishable from the probe's own protocol noise.
  * `wrangler dev` then serves the
  * built Worker with DATABASE_URL pointed at that server, and two sequential
  * POSTs are sent to /api/support (which calls getDb() before doing anything
@@ -285,7 +289,7 @@ main()
     process.exit(0);
   })
   .catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(error instancof Error ? error.message : error);
     cleanup();
     process.exit(1);
   });

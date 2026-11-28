@@ -116,6 +116,9 @@ Source: `Dockerfile`, `lib/migrate.ts`, `.github/workflows/ci.yml`,
 3. Deploy image, start `node server.js`.
 4. Verify read-only by default: `GET /api/health → 200`, then `GET
    /api/ready → 200`.
+   `npm run smoke:db -- https://<domain>` covers both plus the public
+   directory page and writes nothing; run it before any approved
+   submission test.
 5. Verify admin sign-in (`/admin/signin`): allowlisted Google account
    succeeds; non-allowlisted sees Access Denied; signed-out `/admin`
    sees Access Denied.

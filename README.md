@@ -220,9 +220,9 @@ real assertion.
   service, Vitest (including the real-Postgres integration suites), and a
   production `next build`.
 - **`workers-build`** ("OpenNext Workers build") — bundles the Worker with
-  `open-next.config.ci.ts` and `wrangler.ci.jsonc`, so an unsupported Next
-  version or an unresolved `pg-cloudflare` fails on the PR instead of during
-  a Sites publish.
+  the same Sites configs a publish uses, so an unsupported Next version or
+  an unresolved `pg-cloudflare` fails on the PR instead of during a Sites
+  publish.
 
 ## Security & launch hardening
 
@@ -239,7 +239,7 @@ Semantic landmarks, skip link, labeled inputs + autocomplete, field errors + err
 - [ ] Runtime variables set (DATABASE_URL, AUTH_SECRET, Google ID/secret, ADMIN_EMAILS, NEXT_PUBLIC_SITE_URL, AUTH_TRUST_HOST=true)
 - [ ] Database connected; `npm run db:migrate` applied via pre-deploy command
 - [ ] Public domain + HTTPS verified; canonical site URL correct
-- [ ] `/api/health` 200; `/api/ready` ready
+- [ ] `/api/health` 200; `/api/ready` ready; `npm run smoke:db -- <url>` exits 0
 - [ ] Google sign-in tested; allowlisted login works; non-allowlisted denied; signed-out denied
 - [ ] Test donation request saved and visible to admin; test support + contact flows
 - [ ] Rate limiting + failure states tested (429 page, 503 maintenance message)

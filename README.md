@@ -38,7 +38,7 @@ npm run db:migrate
 Generate a new migration after editing `lib/schema.ts`:
 
 ```bash
-db:generate
+npm run db:generate
 ```
 
 Run the app:
@@ -214,7 +214,7 @@ Tradeoffs / remaining work: no CAPTCHA yet (add if spam appears); file-upload-fr
 
 ## Accessibility & performance
 
-Semantic landmarks, skip link, labeled inputs + autocomplete, field errors + error summary, `aria-live` announcements, 44px+ targets, focus-visible rings, reduced-motion support, no color-only status. Server-rendered public pages, minimal client JS (forms, accordion, menus), one self-hosted SVG OG image, no trackers.
+Semantic landmarks, skip link, labeled inputs + autocomplete, field errors + error summary, `aria-live` announcements, 44px+ targets, focus-visible rings, reduced-motion support, no color-only status. Server-rendered public pages, minimal JS (forms, accordion, menus), one self-hosted SVG OG image, no trackers.
 
 ## Launch checklist
 

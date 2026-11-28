@@ -68,6 +68,13 @@ Source: `app/api/health/route.ts`, `app/api/ready/route.ts`, `lib/db.ts`.
   - Detailed DB errors are not exposed publicly; generic reasons only.
   Use `/api/ready` separately after deploy to verify readiness, never as
   the deploy health check.
+  Verify a deployment's `DATABASE_URL` with the read-only smoke check:
+  `npm run smoke:db -- https://<domain>`. It sends exactly two GETs
+  (`/api/ready` and `/temples`) and writes nothing — no submissions,
+  no test records. It exits non-zero if `/api/ready` is not
+  `200 {"status":"ready"}`, or if `/temples` renders its
+  "database temporarily unavailable" fallback, which that page still
+  serves with HTTP 200.
 
 ---
 
@@ -101,6 +108,9 @@ Source: `Dockerfile`, `lib/migrate.ts`, `.github/workflows/ci.yml`,
 3. Deploy image, start `node server.js`.
 4. Verify read-only by default: `GET /api/health → 200`, then `GET
    /api/ready → 200`.
+   `npm run smoke:db -- https://<domain>` covers both plus the public
+   directory page and writes nothing; run it before any approved
+   submission test.
 5. Verify admin sign-in (`/admin/signin`): allowlisted Google account
    succeeds; non-allowlisted sees Access Denied; signed-out `/admin`
    sees Access Denied.

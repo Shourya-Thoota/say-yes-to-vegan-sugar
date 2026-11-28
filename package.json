@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "smoke:db": "node scripts/smoke-db.mjs",
     "start": "node server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

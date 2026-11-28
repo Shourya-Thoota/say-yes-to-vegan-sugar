@@ -38,7 +38,7 @@ npm run db:migrate
 Generate a new migration after editing `lib/schema.ts`:
 
 ```bash
-npm run db:generate
+db:generate
 ```
 
 Run the app:
@@ -191,6 +191,21 @@ npm run db:generate   # local only, after schema edits; commit the SQL
 npm run db:migrate    # local + Railway pre-deploy; applies ./drizzle
 ```
 
+To verify a running instance's `DATABASE_URL` end to end, run the read-only
+smoke check. It sends exactly two `GET`s (`/api/ready` and `/temples`) and
+writes nothing — no submissions, no test records:
+
+```bash
+npm run smoke:db -- https://<domain>
+# or against a local server:
+SMOKE_BASE_URL=http://127.0.0.1:3000 npm run smoke:db
+```
+
+It exits non-zero if `/api/ready` is not `200 {"status":"ready"}`, or if
+`/temples` renders its "database temporarily unavailable" fallback — that
+page returns HTTP 200 even when the database is down, so the marker is the
+real assertion.
+
 ## Security & launch hardening
 
 Implemented: server-side Zod validation, persistent rate limiting (10 req/hr/IP for donation requests, 20/hr for support/contact), honeypot fields, 32–64 KB body limits, no `localStorage` PII, no PII in URLs, no public lookup endpoint, `private, no-store` on admin/API-admin, security headers (nosniff, DENY framing, referrer, CSP), fail-closed admin, generic public error messages (detailed DB errors only in server logs), `AUTH_TRUST_HOST` for Railway proxy handling (rate limiting uses `x-forwarded-for` only for bucketing, never for auth).
@@ -206,7 +221,7 @@ Semantic landmarks, skip link, labeled inputs + autocomplete, field errors + err
 - [ ] Runtime variables set (DATABASE_URL, AUTH_SECRET, Google ID/secret, ADMIN_EMAILS, NEXT_PUBLIC_SITE_URL, AUTH_TRUST_HOST=true)
 - [ ] Database connected; `npm run db:migrate` applied via pre-deploy command
 - [ ] Public domain + HTTPS verified; canonical site URL correct
-- [ ] `/api/health` 200; `/api/ready` ready
+- [ ] `/api/health` 200; `/api/ready` ready; `npm run smoke:db -- <url>` exits 0
 - [ ] Google sign-in tested; allowlisted login works; non-allowlisted denied; signed-out denied
 - [ ] Test donation request saved and visible to admin; test support + contact flows
 - [ ] Rate limiting + failure states tested (429 page, 503 maintenance message)

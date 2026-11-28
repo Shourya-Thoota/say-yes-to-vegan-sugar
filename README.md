@@ -6,7 +6,7 @@ This is **not** an online store. No checkout, payments, fundraising targets, or 
 
 ## Stack
 
-- Next.js 15 App Router · TypeScript (strict) · Tailwind CSS
+- Next.js 16 App Router · TypeScript (strict) · Tailwind CSS
 - PostgreSQL + Drizzle ORM (committed SQL migrations)
 - Zod + React Hook Form (validation)
 - Auth.js v5 (NextAuth beta) with Google sign-in for administrators
@@ -182,7 +182,13 @@ Tables: `donation_requests`, `request_notes`, `request_status_history`, `support
 - Idempotency keys (unique) prevent duplicate rows on retries.
 - Status changes + history writes run in a transaction with admin email + timestamp.
 - Bounded pagination everywhere; indexes on status, created_at, state.
-- Connection pool: `pg` Pool, max 10, 10s connect timeout.
+- Connections are runtime-specific. Railway/Node keeps one module-level `pg`
+  `Pool` (`max: 10`, 30 s idle, 10 s connect timeout). Workerd cannot reuse a
+  TCP socket across requests, so on Workers `getDb()` opens a `Client` per
+  request, gates queries on its connect promise, and closes it from Next's
+  `after()` once the response is done; `getPool()` returns `null` there.
+  Routes open the database once and pass that handle to `checkRateLimit`, so a
+  single request uses one connection for the limiter and the write.
 
 Migration workflow:
 
@@ -190,6 +196,33 @@ Migration workflow:
 npm run db:generate   # local only, after schema edits; commit the SQL
 npm run db:migrate    # local + Railway pre-deploy; applies ./drizzle
 ```
+
+To verify a running instance's `DATABASE_URL` end to end, run the read-only
+smoke check. It sends exactly two `GET`s (`/api/ready` and `/temples`) and
+writes nothing — no submissions, no test records:
+
+```bash
+npm run smoke:db -- https://<domain>
+# or against a local server:
+SMOKE_BASE_URL=http://127.0.0.1:3000 npm run smoke:db
+```
+
+It exits non-zero if `/api/ready` is not `200 {"status":"ready"}`, or if
+`/temples` renders its "database temporarily unavailable" fallback — that
+page returns HTTP 200 even when the database is down, so the marker is the
+real assertion.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+- **`ci`** — `npm ci`, typecheck, lint, migrations against a Postgres 18
+  service, Vitest (including the real-Postgres integration suites), and a
+  production `next build`.
+- **`workers-build`** ("OpenNext Workers build") — bundles the Worker with
+  the same Sites configs a publish uses, so an unsupported Next version or
+  an unresolved `pg-cloudflare` fails on the PR instead of during a Sites
+  publish.
 
 ## Security & launch hardening
 
@@ -206,7 +239,7 @@ Semantic landmarks, skip link, labeled inputs + autocomplete, field errors + err
 - [ ] Runtime variables set (DATABASE_URL, AUTH_SECRET, Google ID/secret, ADMIN_EMAILS, NEXT_PUBLIC_SITE_URL, AUTH_TRUST_HOST=true)
 - [ ] Database connected; `npm run db:migrate` applied via pre-deploy command
 - [ ] Public domain + HTTPS verified; canonical site URL correct
-- [ ] `/api/health` 200; `/api/ready` ready
+- [ ] `/api/health` 200; `/api/ready` ready; `npm run smoke:db -- <url>` exits 0
 - [ ] Google sign-in tested; allowlisted login works; non-allowlisted denied; signed-out denied
 - [ ] Test donation request saved and visible to admin; test support + contact flows
 - [ ] Rate limiting + failure states tested (429 page, 503 maintenance message)

@@ -77,12 +77,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Catches two failures that otherwise only surface during a Sites
-      # publish: Next falling out of the OpenNext support window (its build
+      # Builds with the same OpenNext and Wrangler configs Sites publishes
+      # with, so this job also covers the R2 incremental cache and Durable
+      # Object overrides, plus the failures that otherwise only surface during
+      # a publish: Next falling out of the OpenNext support window (its build
       # refuses unsupported versions) and pg-cloudflare not being traced into
-      # the Worker bundle. The configs are CI-only; Sites uses its own.
+      # the Worker bundle.
       - name: OpenNext/Workers build
         run: >-
           npx opennextjs-cloudflare build
-          --openNextConfigPath open-next.config.ci.ts
-          --config wrangler.ci.jsonc
+          --openNextConfigPath freebuff.open-next.config.ts
+          --config freebuff.wrangler.jsonc
+
+      # Runs the built Worker under wrangler dev with DATABASE_URL pointed at a
+      # local TCP probe, then sends two sequential requests. Each must open
+      # exactly one Postgres connection and close it (Terminate) via after(),
+      # so a second getDb() call per request or a leaked connection fails CI.
+      - name: Verify one Postgres connection per request
+        run: npm run probe:workers-db

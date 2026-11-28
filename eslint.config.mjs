@@ -10,6 +10,7 @@ export default defineConfig([
     "out/**",
     "build/**",
     "freebuff-sites-build/**",
+    "freebuff.open-next.config.ts",
     "test-results/**",
     "next-env.d.ts",
   ]),

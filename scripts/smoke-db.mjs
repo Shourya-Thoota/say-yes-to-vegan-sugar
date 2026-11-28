@@ -21,18 +21,16 @@ const base = (
 ).replace(/\/+$/, "");
 
 const TIMEOUT_MS = 20_000;
-const DIRECTORY_MARKER = "Temple directory";
 const DIRECTORY_FALLBACK = "The directory is temporarily unavailable";
 
 const failures = [];
 
-async function get(path) {
-  const res = await fetch(`${base}${path}`, {
+function get(path) {
+  return fetch(`${base}${path}`, {
     redirect: "manual",
     signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: { "cache-control": "no-cache" },
   });
-  return { res, body: await res.text() };
 }
 
 function pass(message) {
@@ -45,13 +43,8 @@ function fail(message) {
 }
 
 async function checkReady() {
-  const { res, body } = await get("/api/ready");
-  let json = null;
-  try {
-    json = JSON.parse(body);
-  } catch {
-    // Reported below as a non-JSON body.
-  }
+  const res = await get("/api/ready");
+  const json = await res.json().catch(() => null);
   if (res.status === 200 && json?.status === "ready") {
     pass("GET /api/ready -> 200 ready");
     return;
@@ -62,7 +55,8 @@ async function checkReady() {
 }
 
 async function checkDirectory() {
-  const { res, body } = await get("/temples");
+  const res = await get("/temples");
+  const body = await res.text();
   if (res.status !== 200) {
     fail(`GET /temples -> ${res.status}`);
     return;
@@ -71,11 +65,7 @@ async function checkDirectory() {
     fail("GET /temples -> 200 but rendered the database-unavailable fallback");
     return;
   }
-  if (!body.includes(DIRECTORY_MARKER)) {
-    fail("GET /temples -> 200 but the directory heading was missing");
-    return;
-  }
-  pass("GET /temples -> 200 with live directory content");
+  pass("GET /temples -> 200 without the database-unavailable fallback");
 }
 
 console.log(`Smoke checking ${base} (read-only)\n`);

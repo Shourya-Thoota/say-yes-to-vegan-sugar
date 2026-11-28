@@ -182,7 +182,13 @@ Tables: `donation_requests`, `request_notes`, `request_status_history`, `support
 - Idempotency keys (unique) prevent duplicate rows on retries.
 - Status changes + history writes run in a transaction with admin email + timestamp.
 - Bounded pagination everywhere; indexes on status, created_at, state.
-- Connection pool: `pg` Pool, max 10, 10s connect timeout.
+- Connections are runtime-specific. Railway/Node keeps one module-level `pg`
+  `Pool` (`max: 10`, 30 s idle, 10 s connect timeout). Workerd cannot reuse a
+  TCP socket across requests, so on Workers `getDb()` opens a `Client` per
+  request, gates queries on its connect promise, and closes it from Next's
+  `after()` once the response is done; `getPool()` returns `null` there.
+  Routes open the database once and pass that handle to `checkRateLimit`, so a
+  single request uses one connection for the limiter and the write.
 
 Migration workflow:
 

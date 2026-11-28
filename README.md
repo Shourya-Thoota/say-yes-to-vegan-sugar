@@ -6,7 +6,7 @@ This is **not** an online store. No checkout, payments, fundraising targets, or 
 
 ## Stack
 
-- Next.js 15 App Router · TypeScript (strict) · Tailwind CSS
+- Next.js 16 App Router · TypeScript (strict) · Tailwind CSS
 - PostgreSQL + Drizzle ORM (committed SQL migrations)
 - Zod + React Hook Form (validation)
 - Auth.js v5 (NextAuth beta) with Google sign-in for administrators
@@ -196,6 +196,18 @@ Migration workflow:
 npm run db:generate   # local only, after schema edits; commit the SQL
 npm run db:migrate    # local + Railway pre-deploy; applies ./drizzle
 ```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+- **`ci`** — `npm ci`, typecheck, lint, migrations against a Postgres 18
+  service, Vitest (including the real-Postgres integration suites), and a
+  production `next build`.
+- **`workers-build`** ("OpenNext Workers build") — bundles the Worker with
+  `open-next.config.ci.ts` and `wrangler.ci.jsonc`, so an unsupported Next
+  version or an unresolved `pg-cloudflare` fails on the PR instead of during
+  a Sites publish.
 
 ## Security & launch hardening
 

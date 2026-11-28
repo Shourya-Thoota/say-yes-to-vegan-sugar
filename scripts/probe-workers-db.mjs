@@ -289,7 +289,7 @@ main()
     process.exit(0);
   })
   .catch((error) => {
-    console.error(error instancof Error ? error.message : error);
+    console.error(error instanceof Error ? error.message : error);
     cleanup();
     process.exit(1);
   });

@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "probe:workers-db": "node scripts/probe-workers-db.mjs",
+    "smoke:db": "node scripts/smoke-db.mjs",
     "start": "node server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

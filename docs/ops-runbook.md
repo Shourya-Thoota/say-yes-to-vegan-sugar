@@ -59,7 +59,15 @@ Source: `app/api/health/route.ts`, `app/api/ready/route.ts`, `lib/db.ts`.
   health check.
 - `GET /api/ready` — readiness. Checks `DATABASE_URL` presence
   (`isDbConfigured`) then `SELECT 1` via `checkDbReadable()`
-  (10s connect timeout, pool max 10).
+  - Connection handling is runtime-specific:
+    - Railway/Node: one process-wide `pg` Pool (max 10, 10s connect
+      timeout), reused across requests.
+    - Workers: `checkDbReadable()` opens a single `Client` with the same
+      10s connect timeout, runs `SELECT 1`, and closes it in `finally`
+      before responding. Code paths that call `getDb()` instead get a
+      per-request `Client` that `after()` closes once the response is
+      finished. A workerd socket cannot outlive the request that opened
+      it, so this runtime has no pool to exhaust.
   - No `DATABASE_URL` → `503 { status: "not_ready", reason:
     "database_not_configured" }`.
   - DB unreachable → `503 { status: "not_ready", reason:
